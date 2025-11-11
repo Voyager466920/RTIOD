@@ -1,27 +1,34 @@
 import torch
 import torch.nn as nn
-import math
+from torchvision.ops import FeaturePyramidNetwork
+from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
-from WorkStation.AuxDetScratch.M2DM import M2DM
+import math
+from collections import OrderedDict
+
+from WorkStation.Model.M2DM import M2DM
 
 
 class AuxDetScratch(nn.Module):
-    def __init__(self, meta_in_dim=9, meta_hidden=64, meta_out_dim=128):
+    def __init__(self, meta_in_dim=10, meta_hidden=64, meta_out_dim=128, fpn_out=256):
         super().__init__()
         self.image_extractor = ImageExtractor()
         self.meta_encoder = MetadataEncoder(in_dim=meta_in_dim, hidden=meta_hidden, out_dim=meta_out_dim)
         self.cdown = CDown(in_channel=64, out_channel=512)
         self.fuse = AuxFusion(ch_delta=512, dim_meta=meta_out_dim, hidden=128, out_dim=128)
-        self.m2dm = M2DM(meta_out_dim, meta_in_dim, hidden=256)
+        self.m2dm1 = M2DM(feat_ch=64, aux_dim=128, rank=64, hidden=256)
+        self.fpn = FeaturePyramidNetwork(in_channels_list=[64,128,256,512],
+                                         out_channels=fpn_out,
+                                         extra_blocks=LastLevelMaxPool())
     def forward(self, img, meta):
         x1, x2, x3, x4 = self.image_extractor(img)
         z = self.meta_encoder(meta)
-        #TODO meta data encoding 정리
         delx = self.cdown(x1, x4) - x4
         a = self.fuse(delx, z)
-        x_bar = self.m2dm(a)
-        return x_bar
-
+        y1 = self.m2dm1(x1, a)
+        feats = OrderedDict([("c1", y1), ("c2", x2), ("c3", x3), ("c4", x4)])
+        p = self.fpn(feats)
+        return p
 
 
 class ImageExtractor(nn.Module):
@@ -33,17 +40,17 @@ class ImageExtractor(nn.Module):
             nn.ReLU()
         )
         self.stage2 = nn.Sequential(
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1, stride=2),
             nn.BatchNorm2d(128),
             nn.ReLU()
         )
         self.stage3 = nn.Sequential(
-            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1, stride=2),
             nn.BatchNorm2d(256),
             nn.ReLU()
         )
         self.stage4 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1, stride=1),
+            nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1, stride=2),
             nn.BatchNorm2d(512),
             nn.ReLU()
         )
@@ -57,33 +64,41 @@ class ImageExtractor(nn.Module):
 
 
 class MetadataEncoder(nn.Module):
-    def __init__(self, in_dim=9, hidden=64, out_dim=128):
+    def __init__(self, in_dim, hidden=64, out_dim=128):
         super().__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(in_dim, hidden),
-            nn.ReLU(),
-            nn.Linear(hidden, out_dim),
-            nn.ReLU()
-        )
+        self.hidden = hidden
+        self.out_dim = out_dim
+        self.mlp = None
+
     def forward(self, meta):
         wind_dir = meta[:, 4] * math.pi / 180.0
         sin_dir = torch.sin(wind_dir).unsqueeze(1)
         cos_dir = torch.cos(wind_dir).unsqueeze(1)
         meta_proc = torch.cat([meta[:, :4], sin_dir, cos_dir, meta[:, 5:]], dim=1)
+        if self.mlp is None:
+            self.mlp = nn.Sequential(
+                nn.Linear(meta_proc.size(1), self.hidden),
+                nn.ReLU(),
+                nn.Linear(self.hidden, self.out_dim),
+                nn.ReLU()
+            ).to(meta_proc.device)
         return self.mlp(meta_proc)
+
 
 class CDown(nn.Module):
     def __init__(self, in_channel, out_channel):
         super().__init__()
-        self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=2, padding=1)
+        self.conv = nn.Conv2d(in_channel, out_channel, 3, 2, 1)
         self.bn = nn.BatchNorm2d(out_channel)
         self.act = nn.ReLU()
+        self.adap = nn.AdaptiveAvgPool2d
 
     def forward(self, x, ref):
         y = self.act(self.bn(self.conv(x)))
-        #레퍼런스랑 다르면 interpolation 구현 전
-        if y.shape[-2:] != ref.shape[-2:] : print(r"인풋 차원이 다릅니다")
+        if y.shape[-2:] != ref.shape[-2:]:
+            y = self.adap(ref.shape[-2:])(y)
         return y
+
 
 class ResidualFusion(nn.Module):
     def __init__(self, in_dim, hidden, out_dim):
