@@ -25,7 +25,12 @@ class AuxDetScratch(nn.Module):
                                          extra_blocks=LastLevelMaxPool())
         self.rpn = RPNHead(out_channels=fpn_out)
         self.roi = ROIHead(featmap_names=["c1","c2","c3","c4","pool"], out_channels=fpn_out, num_classes=num_classes)
-        self.transform = GeneralizedRCNNTransform(min_size=512, max_size=1024, image_mean=[0.0], image_std=[1.0])
+        self.transform = GeneralizedRCNNTransform(
+            min_size=288,
+            max_size=384, # Image Transformed to the original image
+            image_mean=[0.0],
+            image_std=[1.0]
+        )
 
     def forward(self, images, meta, targets=None):
         if isinstance(images, torch.Tensor):
@@ -109,23 +114,22 @@ class ImageExtractorCNN(nn.Module):
 class MetadataEncoder(nn.Module):
     def __init__(self, in_dim, hidden=64, out_dim=128):
         super().__init__()
-        self.hidden = hidden
-        self.out_dim = out_dim
-        self.mlp = None
-
+        self.hidden, self.out_dim = hidden, out_dim
+        proj_in = in_dim + 1
+        self.mlp = nn.Sequential(
+            nn.Linear(proj_in, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, out_dim),
+            nn.ReLU()
+        )
     def forward(self, meta):
         wind_dir = meta[:, 4] * math.pi / 180.0
-        sin_dir = torch.sin(wind_dir).unsqueeze(1)
-        cos_dir = torch.cos(wind_dir).unsqueeze(1)
-        meta_proc = torch.cat([meta[:, :4], sin_dir, cos_dir, meta[:, 5:]], dim=1)
-        if self.mlp is None:
-            self.mlp = nn.Sequential(
-                nn.Linear(meta_proc.size(1), self.hidden),
-                nn.ReLU(),
-                nn.Linear(self.hidden, self.out_dim),
-                nn.ReLU()
-            ).to(meta_proc.device)
+        meta_proc = torch.cat([meta[:, :4],
+                               torch.sin(wind_dir).unsqueeze(1),
+                               torch.cos(wind_dir).unsqueeze(1),
+                               meta[:, 5:]], dim=1)
         return self.mlp(meta_proc)
+
 
 
 class CDown(nn.Module):

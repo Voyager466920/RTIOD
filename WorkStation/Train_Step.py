@@ -1,23 +1,21 @@
-def train_step(dataloader, model, loss_fn, optimizer, device):
+def train_step(dataloader, model, optimizer, device):
     model.train()
-    total_loss = 0
-    total_samples = 0
-    total_correct = 0
+    total_loss = 0.0
+    total_batches = 0
 
-    for images, labels in dataloader:
-        images, labels = images.to(device), labels.to(device)
+    for images, metas, targets in dataloader:
+        images = [img.to(device) for img in images]
+        metas = metas.to(device)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        outputs = model(images)
-        loss = loss_fn(outputs, labels)
+        _, losses = model(images, metas, targets)
+        loss = sum(losses.values())
+
         optimizer.zero_grad()
-
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.item() * images.size(0)
-        total_samples += images.size(0)
-        total_correct += (labels == outputs.argmax(1)).sum().item()
+        total_loss += loss.item()
+        total_batches += 1
 
-    avg_loss = total_loss / total_samples
-    acc = total_correct / total_samples
-    return avg_loss, acc
+    return total_loss / max(1, total_batches)
