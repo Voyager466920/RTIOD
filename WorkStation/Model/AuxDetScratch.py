@@ -4,6 +4,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 from torchvision import models
+from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.ops import FeaturePyramidNetwork
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
@@ -12,31 +13,42 @@ from WorkStation.Model.RPN_ROI_Heads import RPNHead, ROIHead
 
 
 class AuxDetScratch(nn.Module):
-    def __init__(self, meta_in_dim=10, meta_hidden=64, meta_out_dim=128, fpn_out=256):
+    def __init__(self, meta_in_dim=10, meta_hidden=64, meta_out_dim=128, fpn_out=256, num_classes=2):
         super().__init__()
         self.backbone = ImageExtractorResnet50()
         self.meta_encoder = MetadataEncoder(in_dim=meta_in_dim, hidden=meta_hidden, out_dim=meta_out_dim)
         self.cdown = CDown(in_channel=64, out_channel=512)
         self.fuse = AuxFusion(ch_delta=512, dim_meta=meta_out_dim, hidden=128, out_dim=128)
         self.m2dm1 = M2DM(feat_ch=64, aux_dim=128, rank=64, hidden=256)
-        self.fpn = FeaturePyramidNetwork(in_channels_list=[64, 256, 512, 2048],
+        self.fpn = FeaturePyramidNetwork(in_channels_list=[64, 512, 1024, 2048],
                                          out_channels=fpn_out,
                                          extra_blocks=LastLevelMaxPool())
-        self.rpn = RPNHead(out_channels=256)
-        self.roi = ROIHead(featmap_names=["c1","c2","c3","c4","pool"], out_channels=256, num_classes=2) #TODO: what the fuck is num_classes??
+        self.rpn = RPNHead(out_channels=fpn_out)
+        self.roi = ROIHead(featmap_names=["c1","c2","c3","c4","pool"], out_channels=fpn_out, num_classes=num_classes)
+        self.transform = GeneralizedRCNNTransform(min_size=512, max_size=1024, image_mean=[0.0], image_std=[1.0])
 
-    def forward(self, img, meta):
-        xi, x1, x2, x3, x4 = self.backbone(img)
+    def forward(self, images, meta, targets=None):
+        if isinstance(images, torch.Tensor):
+            images_list = [im for im in images]
+        else:
+            images_list = images
+        t_images = self.transform(images_list)
+        x = t_images.tensors
+        xi, x1, x2, x3, x4 = self.backbone(x)
         z = self.meta_encoder(meta)
         delx = self.cdown(xi, x4) - x4
         a = self.fuse(delx, z)
         y1 = self.m2dm1(xi, a)
         feats = OrderedDict([("c1", y1), ("c2", x2), ("c3", x3), ("c4", x4)])
         p = self.fpn(feats)
-        rpnhead = self.rpn(p)
-        roihead = self.roi(p)
-
-        return rpnhead, roihead
+        proposals, rpn_losses = self.rpn(t_images, p, targets)
+        detections, roi_losses = self.roi(p, proposals, t_images.image_sizes, targets)
+        detections = self.transform.postprocess(detections, t_images.image_sizes, [im.shape[-2:] for im in images_list])
+        losses = {}
+        if self.training:
+            losses.update(rpn_losses)
+            losses.update(roi_losses)
+        return detections, losses
 
 class ImageExtractorResnet50(nn.Module):
     def __init__(self, pretrained=True):
