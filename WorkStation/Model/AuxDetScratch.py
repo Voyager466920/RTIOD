@@ -18,9 +18,10 @@ class AuxDetScratch(nn.Module):
         self.cdown = CDown(in_channel=64, out_channel=512)
         self.fuse = AuxFusion(ch_delta=512, dim_meta=meta_out_dim, hidden=128, out_dim=128)
         self.m2dm1 = M2DM(feat_ch=64, aux_dim=128, rank=64, hidden=256)
-        self.fpn = FeaturePyramidNetwork(in_channels_list=[64,128,256,512],
+        self.fpn = FeaturePyramidNetwork(in_channels_list=[64, 256, 512, 2048],
                                          out_channels=fpn_out,
                                          extra_blocks=LastLevelMaxPool())
+
     def forward(self, img, meta):
         xi, x1, x2, x3, x4 = self.backbone(img)
         z = self.meta_encoder(meta)

@@ -28,4 +28,3 @@ def main():
         train_loss, train_acc = train_step(train_dataloader, model, loss_fn, optimizer, device)
         test_loss, test_acc = test_step(test_dataloader, model, loss_fn, device)
         print(f"Train Step : train_loss : {train_loss}, train_acc: {train_acc} | Test Step : test_loss : {test_loss}, test_acc : {test_acc}")
-        
