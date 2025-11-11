@@ -16,7 +16,7 @@ def main():
     epochs = 100
     batch_size = 128
     lr = 1e-4
-    num_classes = 2
+    num_classes = 5
 
     csv_path = r"C:\junha\Datasets\LTDv2\metadata_images.csv"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
@@ -35,6 +35,9 @@ def main():
         train_loss, train_acc = train_step(train_dataloader, model, optimizer, device)
         test_loss, test_acc = test_step(test_dataloader, model, device)
         print(f"Epoch {epoch} | Train Step : train_loss : {train_loss}, train_acc: {train_acc} | Test Step : test_loss : {test_loss}, test_acc : {test_acc}")
+
+        torch.save(model.state_dict(), f"model_epoch_{epoch + 1:03d}.pt")
+        print(f"saved: model_epoch_{epoch + 1:03d}.pt")
 
 if __name__=="__main__":
     main()
