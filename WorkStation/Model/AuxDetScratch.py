@@ -8,6 +8,7 @@ from torchvision.ops import FeaturePyramidNetwork
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
 from WorkStation.Model.M2DM import M2DM
+from WorkStation.Model.RPN_ROI_Heads import RPNHead, ROIHead
 
 
 class AuxDetScratch(nn.Module):
@@ -21,6 +22,8 @@ class AuxDetScratch(nn.Module):
         self.fpn = FeaturePyramidNetwork(in_channels_list=[64, 256, 512, 2048],
                                          out_channels=fpn_out,
                                          extra_blocks=LastLevelMaxPool())
+        self.rpn = RPNHead(out_channels=256)
+        self.roi = ROIHead(featmap_names=["c1","c2","c3","c4","pool"], out_channels=256, num_classes=2) #TODO: what the fuck is num_classes??
 
     def forward(self, img, meta):
         xi, x1, x2, x3, x4 = self.backbone(img)
@@ -30,7 +33,10 @@ class AuxDetScratch(nn.Module):
         y1 = self.m2dm1(xi, a)
         feats = OrderedDict([("c1", y1), ("c2", x2), ("c3", x3), ("c4", x4)])
         p = self.fpn(feats)
-        return p
+        rpnhead = self.rpn(p)
+        roihead = self.roi(p)
+
+        return rpnhead, roihead
 
 class ImageExtractorResnet50(nn.Module):
     def __init__(self, pretrained=True):
