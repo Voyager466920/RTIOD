@@ -23,7 +23,6 @@ class IRDataset(Dataset):
         image_root: str,
         bbox_root: Optional[str] = None,
         bbox_pattern: str = "{date}{clip_digits}{frame_digits}.txt",
-        image_exts: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".bmp"),
         date_col: str = "Folder name",
         clip_col: str = "Clip Name",
         frame_col: str = "Image Number",
@@ -33,9 +32,9 @@ class IRDataset(Dataset):
         self.image_root = image_root
         self.bbox_root = bbox_root or image_root
         self.bbox_pattern = bbox_pattern
-        self.image_exts = image_exts
         self.date_col, self.clip_col, self.frame_col = date_col, clip_col, frame_col
         self.force_size = force_size
+
         with open(csv_path, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
 
@@ -67,16 +66,12 @@ class IRDataset(Dataset):
         self.eps = 1e-8
 
         self.samples: List[Dict] = []
-        for i, r in enumerate(rows):
+        for r in rows:
             date = str(r[self.date_col]).strip()
             clip = str(r[self.clip_col]).strip()
             frame = str(r[self.frame_col]).strip()
-            img_path = None
-            for ext in self.image_exts:
-                p = os.path.join(self.image_root, date, clip, frame) + ext
-                if os.path.exists(p): img_path = p; break
-            if img_path is None:
-                img_path = os.path.join(self.image_root, date, clip, frame) + self.image_exts[0]
+
+            img_path = os.path.join(self.image_root, date, clip, frame + ".jpg")
 
             raw_meta = []
             for m in self.meta_cols:
@@ -97,6 +92,7 @@ class IRDataset(Dataset):
             self.samples.append({"img_path": img_path, "bbox_path": bbox_path, "meta": v})
 
         self.meta_dim = len(self.meta_cols)
+        #print(f"[IRDataset] meta_cols={len(self.meta_cols)} {self.meta_cols}")
 
     def __len__(self):
         return len(self.samples)

@@ -12,12 +12,14 @@ from WorkStation.Model.M2DM import M2DM
 from WorkStation.Model.RPN_ROI_Heads import RPNHead, ROIHead
 
 
+
 class AuxDetScratch(nn.Module):
     def __init__(self, meta_in_dim=10, meta_hidden=64, meta_out_dim=128, fpn_out=256, num_classes=2):
         super().__init__()
         self.backbone = ImageExtractorResnet50()
         self.meta_encoder = MetadataEncoder(in_dim=meta_in_dim, hidden=meta_hidden, out_dim=meta_out_dim)
         self.cdown = CDown(in_channel=64, out_channel=512)
+        self.x4_reduce = nn.Conv2d(2048, 512, 1)
         self.fuse = AuxFusion(ch_delta=512, dim_meta=meta_out_dim, hidden=128, out_dim=128)
         self.m2dm1 = M2DM(feat_ch=64, aux_dim=128, rank=64, hidden=256)
         self.fpn = FeaturePyramidNetwork(in_channels_list=[64, 512, 1024, 2048],
@@ -25,23 +27,23 @@ class AuxDetScratch(nn.Module):
                                          extra_blocks=LastLevelMaxPool())
         self.rpn = RPNHead(out_channels=fpn_out)
         self.roi = ROIHead(featmap_names=["c1","c2","c3","c4","pool"], out_channels=fpn_out, num_classes=num_classes)
-        self.transform = GeneralizedRCNNTransform(
-            min_size=288,
-            max_size=384, # Image Transformed to the original image
-            image_mean=[0.0],
-            image_std=[1.0]
-        )
+        self.transform = GeneralizedRCNNTransform(min_size=288, max_size=384, image_mean=[0.0], image_std=[1.0])
 
     def forward(self, images, meta, targets=None):
         if isinstance(images, torch.Tensor):
             images_list = [im for im in images]
         else:
             images_list = images
-        t_images = self.transform(images_list)
+        if targets is not None:
+            t_images, targets = self.transform(images_list, targets)
+        else:
+            t_images, _ = self.transform(images_list)
         x = t_images.tensors
         xi, x1, x2, x3, x4 = self.backbone(x)
         z = self.meta_encoder(meta)
-        delx = self.cdown(xi, x4) - x4
+        #print(f"[AuxDetScratch] meta -> encoder input shape: {tuple(meta.shape)} | encoder output shape: {tuple(z.shape)}")
+
+        delx = self.cdown(xi, x4) - self.x4_reduce(x4)
         a = self.fuse(delx, z)
         y1 = self.m2dm1(xi, a)
         feats = OrderedDict([("c1", y1), ("c2", x2), ("c3", x3), ("c4", x4)])
@@ -54,6 +56,8 @@ class AuxDetScratch(nn.Module):
             losses.update(rpn_losses)
             losses.update(roi_losses)
         return detections, losses
+
+
 
 class ImageExtractorResnet50(nn.Module):
     def __init__(self, pretrained=True):
@@ -128,6 +132,11 @@ class MetadataEncoder(nn.Module):
                                torch.sin(wind_dir).unsqueeze(1),
                                torch.cos(wind_dir).unsqueeze(1),
                                meta[:, 5:]], dim=1)
+        # print(f"[MetadataEncoder] meta_in shape: {tuple(meta.shape)}  meta_proc shape: {tuple(meta_proc.shape)}")
+        # print("[MetadataEncoder] first 2 samples (raw):")
+        # print(meta[:2].detach().cpu())
+        # print("[MetadataEncoder] first 2 samples (proc):")
+        # print(meta_proc[:2].detach().cpu())
         return self.mlp(meta_proc)
 
 
