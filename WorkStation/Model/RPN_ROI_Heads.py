@@ -9,7 +9,7 @@ class RPNHead(nn.Module):
     def __init__(self, out_channels=256):
         super().__init__()
         self.anchor_generator = AnchorGenerator(
-            sizes=((32,), (64,), (128,), (256,), (512,)),
+            sizes=((16,), (32,), (64,), (128,), (256,)),
             aspect_ratios=((0.5, 1.0, 2.0),) * 5
         )
         self.head = TVRPNHead(out_channels, num_anchors=3)

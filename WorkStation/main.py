@@ -2,19 +2,19 @@ from tqdm.auto import tqdm
 
 import torch.cuda
 import torch.optim as optim
-import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from Model.AuxDetScratch import AuxDetScratch
-from WorkStation.IRDataset import IRDataset
+from WorkStation.IRDataset import IRDataset, detection_collate
 from WorkStation.Test_Step import test_step
 from WorkStation.Train_Step import train_step
+from WorkStation.Utils import eval_map
 
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    epochs = 100
-    batch_size = 128
+    epochs = 10
+    batch_size = 16
     lr = 1e-4
     num_classes = 5
 
@@ -25,16 +25,17 @@ def main():
 
     train_dataset = IRDataset(csv_path=csv_path, image_root=image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
     test_dataset = IRDataset(csv_path=csv_path, image_root=image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True) #TODO Shuffle을 켜야하나?
-    test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
     model = AuxDetScratch(meta_in_dim=train_dataset.meta_dim, meta_hidden=64, meta_out_dim=128, num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in tqdm(range(epochs)):
-        train_loss, train_acc = train_step(train_dataloader, model, optimizer, device)
-        test_loss, test_acc = test_step(test_dataloader, model, device)
-        print(f"Epoch {epoch} | Train Step : train_loss : {train_loss}, train_acc: {train_acc} | Test Step : test_loss : {test_loss}, test_acc : {test_acc}")
+        train_loss = train_step(train_dataloader, model, optimizer, device)
+        test_loss = test_step(test_dataloader, model, device)
+        metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
+        print(f"Epoch {epoch} | Train Step : train_loss : {train_loss} | Test Step : test_loss : {test_loss} | Test mAP50={metrics['mAP@0.50']:.4f}")
 
         torch.save(model.state_dict(), f"model_epoch_{epoch + 1:03d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")

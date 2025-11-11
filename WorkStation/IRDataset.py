@@ -120,7 +120,7 @@ class IRDataset(Dataset):
                 if len(p) < 5: continue
                 try:
                     c = int(p[0]); x = float(p[1]); y = float(p[2]); w = float(p[3]); h = float(p[4])
-                    boxes.append([x, y, x+w, y+h]); labels.append(c)
+                    boxes.append([x, y, x+w, y+h]); labels.append(c+1)
                 except: continue
         if not boxes:
             return torch.zeros((0, 4), dtype=torch.float32), torch.zeros((0,), dtype=torch.int64)
