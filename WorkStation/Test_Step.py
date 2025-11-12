@@ -15,5 +15,5 @@ def test_step(dataloader, model, device):
 
         total_loss += float(loss.item())
         total_batches += 1
-        
+
     return total_loss / max(1, total_batches)

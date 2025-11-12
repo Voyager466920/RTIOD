@@ -17,23 +17,21 @@ def _digits_from_image(s: str) -> str:
     return d[-4:].zfill(4)
 
 class IRDataset(Dataset):
-    def __init__(
-        self,
-        csv_path: str,
-        image_root: str,
-        bbox_root: Optional[str] = None,
-        bbox_pattern: str = "{date}{clip_digits}{frame_digits}.txt",
-        date_col: str = "Folder name",
-        clip_col: str = "Clip Name",
-        frame_col: str = "Image Number",
-        force_size: Tuple[int, int] = (288, 384),
-    ):
+    def __init__(self, csv_path: str, image_root: str, bbox_root: Optional[str] = None,
+                 bbox_pattern: str = "{date}{clip_digits}{frame_digits}.txt",
+                 image_exts: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".bmp"),
+                 date_col: str = "Folder name", clip_col: str = "Clip Name", frame_col: str = "Image Number",
+                 force_size: Tuple[int, int] = (288, 384),
+                 only_existing: bool = True, require_bbox: bool = False):
         super().__init__()
         self.image_root = image_root
         self.bbox_root = bbox_root or image_root
         self.bbox_pattern = bbox_pattern
+        self.image_exts = image_exts
         self.date_col, self.clip_col, self.frame_col = date_col, clip_col, frame_col
         self.force_size = force_size
+        self.only_existing = only_existing
+        self.require_bbox = require_bbox
 
         with open(csv_path, newline='', encoding='utf-8') as f:
             rows = list(csv.DictReader(f))
@@ -42,15 +40,44 @@ class IRDataset(Dataset):
         meta_cols: List[str] = []
         if rows:
             for k in rows[0].keys():
-                if k in id_cols:
-                    continue
-                try:
-                    float(rows[0][k]); meta_cols.append(k)
+                if k in id_cols: continue
+                try: float(rows[0][k]); meta_cols.append(k)
                 except: pass
         self.meta_cols = meta_cols
 
-        meta_matrix: List[List[float]] = []
+        def _img_path_for(row):
+            date = str(row[self.date_col]).strip()
+            clip = str(row[self.clip_col]).strip()
+            frame = str(row[self.frame_col]).strip()
+            for ext in self.image_exts:
+                p = os.path.join(self.image_root, date, clip, frame) + ext
+                if os.path.exists(p): return p
+            return os.path.join(self.image_root, date, clip, frame) + self.image_exts[0]
+
+        def _bbox_path_for(row):
+            date = str(row[self.date_col]).strip()
+            clip = str(row[self.clip_col]).strip()
+            frame = str(row[self.frame_col]).strip()
+            cd = _digits_from_clip(clip)
+            fd = _digits_from_image(frame)
+            name = self.bbox_pattern.format(date=date, clip=clip, clip_digits=cd, frame=frame, frame_digits=fd)
+            return os.path.join(self.bbox_root, name)
+
+        rows_filt = []
         for r in rows:
+            ip = _img_path_for(r)
+            bp = _bbox_path_for(r)
+            ok_img = os.path.exists(ip)
+            ok_box = (os.path.exists(bp) or not self.require_bbox)
+            if self.only_existing:
+                if ok_img and ok_box: rows_filt.append(r)
+            else:
+                rows_filt.append(r)
+        if not rows_filt:
+            rows_filt = []
+
+        meta_matrix: List[List[float]] = []
+        for r in rows_filt:
             vec = []
             for m in self.meta_cols:
                 try: vec.append(float(r[m]))
@@ -66,13 +93,9 @@ class IRDataset(Dataset):
         self.eps = 1e-8
 
         self.samples: List[Dict] = []
-        for r in rows:
-            date = str(r[self.date_col]).strip()
-            clip = str(r[self.clip_col]).strip()
-            frame = str(r[self.frame_col]).strip()
-
-            img_path = os.path.join(self.image_root, date, clip, frame + ".jpg")
-
+        for r in rows_filt:
+            img_path = _img_path_for(r)
+            bbox_path = _bbox_path_for(r)
             raw_meta = []
             for m in self.meta_cols:
                 try: raw_meta.append(float(r[m]))
@@ -83,16 +106,10 @@ class IRDataset(Dataset):
                 v = (v - self.meta_min) / den
             else:
                 v = torch.zeros(0, dtype=torch.float32)
-
-            clip_digits = _digits_from_clip(clip)
-            frame_digits = _digits_from_image(frame)
-            txt_name = self.bbox_pattern.format(date=date, clip=clip, clip_digits=clip_digits, frame=frame, frame_digits=frame_digits)
-            bbox_path = os.path.join(self.bbox_root, txt_name)
-
             self.samples.append({"img_path": img_path, "bbox_path": bbox_path, "meta": v})
 
         self.meta_dim = len(self.meta_cols)
-        #print(f"[IRDataset] meta_cols={len(self.meta_cols)} {self.meta_cols}")
+        print(f"[IRDataset] kept {len(self.samples)} samples from {len(rows)} rows under {self.image_root}")
 
     def __len__(self):
         return len(self.samples)

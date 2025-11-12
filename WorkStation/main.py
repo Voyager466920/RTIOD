@@ -19,12 +19,14 @@ def main():
     num_classes = 5
 
     csv_path = r"C:\junha\Datasets\LTDv2\metadata_images.csv"
-    image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
+    #image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
+    train_image_root = r"C:\junha\Datasets\LTDv2\mini_Train_frames"
+    test_image_root = r"C:\junha\Datasets\LTDv2\mini_Test_frames"
     bbox_root = r"C:\junha\Datasets\LTDv2\Train_Labels"
     bbox_pattern = "{date}{clip_digits}{frame_digits}.txt"
 
-    train_dataset = IRDataset(csv_path=csv_path, image_root=image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
-    test_dataset = IRDataset(csv_path=csv_path, image_root=image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
+    train_dataset = IRDataset(csv_path=csv_path, image_root=train_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
+    test_dataset = IRDataset(csv_path=csv_path, image_root=test_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
@@ -37,7 +39,7 @@ def main():
         metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
         print(f"Epoch {epoch} | Train Step : train_loss : {train_loss} | Test Step : test_loss : {test_loss} | Test mAP50={metrics['mAP@0.50']:.4f}")
 
-        torch.save(model.state_dict(), f"model_epoch_{epoch + 1:03d}.pt")
+        torch.save(model.state_dict(), f"C:\junha\Git\RTIOD\WorkStation\Checkpoints\model_epoch_{epoch + 1:03d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
 
 if __name__=="__main__":
