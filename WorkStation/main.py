@@ -14,7 +14,7 @@ from WorkStation.Utils import eval_map
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     epochs = 10
-    batch_size = 256
+    batch_size = 64
     lr = 1e-4
     num_classes = 5
 
