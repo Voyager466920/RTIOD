@@ -1,5 +1,5 @@
 tSNE_Visualize/features_all_dates.csv
 /AuxDet/
-/WorkStation/inference_vis/
-/WorkStation/inference_vis_hasbox/
-/WorkStation/Checkpoints/
+/WorkStation_AuxDet/inference_vis/
+/WorkStation_AuxDet/inference_vis_hasbox/
+/WorkStation_AuxDet/Checkpoints/

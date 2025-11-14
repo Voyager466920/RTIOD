@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.transforms.functional import to_pil_image
 from PIL import ImageDraw
-from WorkStation.IRDataset import IRDataset, detection_collate
+from WorkStation_AuxDet.IRDataset import IRDataset, detection_collate
 from Model.AuxDetScratch import AuxDetScratch
 
 weights = r"C:\junha\Git\RTIOD\WorkStation\Checkpoints\model_epoch_001.pt"
@@ -18,7 +18,7 @@ score_thr = 0.0
 batch_size = 8
 max_images = 800
 stride = 3
-output_dir = r"C:\junha\Git\RTIOD\WorkStation\inference_vis_hasbox"
+output_dir = r"/WorkStation_AuxDet\inference_vis_hasbox"
 os.makedirs(output_dir, exist_ok=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"

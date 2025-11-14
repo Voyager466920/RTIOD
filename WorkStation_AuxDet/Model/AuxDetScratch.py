@@ -8,8 +8,8 @@ from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.ops import FeaturePyramidNetwork
 from torchvision.ops.feature_pyramid_network import LastLevelMaxPool
 
-from WorkStation.Model.M2DM import M2DM
-from WorkStation.Model.RPN_ROI_Heads import RPNHead, ROIHead
+from WorkStation_AuxDet.Model.M2DM import M2DM
+from WorkStation_AuxDet.Model.RPN_ROI_Heads import RPNHead, ROIHead
 
 
 

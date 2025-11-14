@@ -5,10 +5,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from Model.AuxDetScratch import AuxDetScratch
-from WorkStation.IRDataset import IRDataset, detection_collate
-from WorkStation.Test_Step import test_step
-from WorkStation.Train_Step import train_step
-from WorkStation.Utils import eval_map
+from WorkStation_AuxDet.IRDataset import IRDataset, detection_collate
+from WorkStation_AuxDet.Test_Step import test_step
+from WorkStation_AuxDet.Train_Step import train_step
+from WorkStation_AuxDet.Utils import eval_map
 
 
 def main():
@@ -39,7 +39,7 @@ def main():
         metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
         print(f"Epoch {epoch} | Train Step : train_loss : {train_loss} | Test Step : test_loss : {test_loss} | Test mAP50={metrics['mAP@0.50']:.4f}")
 
-        torch.save(model.state_dict(), f"C:\junha\Git\RTIOD\WorkStation\Checkpoints\model_epoch_{epoch + 1:03d}.pt")
+        torch.save(model.state_dict(), f"/WorkStation_AuxDet\Checkpoints\model_epoch_{epoch + 1:03d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
 
 if __name__=="__main__":
