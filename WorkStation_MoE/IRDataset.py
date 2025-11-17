@@ -21,6 +21,7 @@ class IRDataset(Dataset):
                  bbox_pattern: str = "{date}{clip_digits}{frame_digits}.txt",
                  image_exts: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".bmp"),
                  date_col: str = "Folder name", clip_col: str = "Clip Name", frame_col: str = "Image Number",
+                 datetime_col: str = "DateTime",
                  force_size: Tuple[int, int] = (288, 384),
                  only_existing: bool = True, require_bbox: bool = False):
         super().__init__()
@@ -28,7 +29,7 @@ class IRDataset(Dataset):
         self.bbox_root = bbox_root or image_root
         self.bbox_pattern = bbox_pattern
         self.image_exts = image_exts
-        self.date_col, self.clip_col, self.frame_col = date_col, clip_col, frame_col
+        self.date_col, self.clip_col, self.frame_col, self.datetime_col = date_col, clip_col, frame_col, datetime_col
         self.force_size = force_size
         self.only_existing = only_existing
         self.require_bbox = require_bbox
@@ -40,9 +41,13 @@ class IRDataset(Dataset):
         meta_cols: List[str] = []
         if rows:
             for k in rows[0].keys():
-                if k in id_cols: continue
-                try: float(rows[0][k]); meta_cols.append(k)
-                except: pass
+                if k in id_cols:
+                    continue
+                try:
+                    float(rows[0][k])
+                    meta_cols.append(k)
+                except:
+                    pass
         self.meta_cols = meta_cols
 
         def _img_path_for(row):
@@ -51,16 +56,48 @@ class IRDataset(Dataset):
             frame = str(row[self.frame_col]).strip()
             for ext in self.image_exts:
                 p = os.path.join(self.image_root, date, clip, frame) + ext
-                if os.path.exists(p): return p
+                if os.path.exists(p):
+                    return p
             return os.path.join(self.image_root, date, clip, frame) + self.image_exts[0]
 
         def _bbox_path_for(row):
             date = str(row[self.date_col]).strip()
             clip = str(row[self.clip_col]).strip()
             frame = str(row[self.frame_col]).strip()
-            cd = _digits_from_clip(clip)
-            fd = _digits_from_image(frame)
-            name = self.bbox_pattern.format(date=date, clip=clip, clip_digits=cd, frame=frame, frame_digits=fd)
+            dt = str(row.get(self.datetime_col, "")).strip()
+
+            year = date[:4] if len(date) >= 4 else "0000"
+            month = date[4:6] if len(date) >= 6 else "00"
+            day = date[6:] if len(date) >= 8 else "1"
+            try:
+                day_int = int(day)
+                day3 = f"{day_int:03d}"
+            except:
+                day3 = day.zfill(3)
+
+            parts = clip.split("_")
+            cam = parts[1] if len(parts) > 1 else "0"
+
+            if dt:
+                if " " in dt:
+                    time_part = dt.split(" ")[1]
+                else:
+                    time_part = dt
+                hm = time_part.split(":")
+                h = hm[0] if len(hm) > 0 else "00"
+                m = hm[1] if len(hm) > 1 else "00"
+            else:
+                h, m = "00", "00"
+
+            if frame.startswith("image_"):
+                fnum = frame.split("image_")[-1]
+            else:
+                fnum = "".join(ch for ch in frame if ch.isdigit())
+            if len(fnum) == 0:
+                fnum = "00"
+            frame2 = fnum[-2:]
+
+            name = f"{year}{month}{cam}0{day3}{h}{m}{frame2}.txt"
             return os.path.join(self.bbox_root, name)
 
         rows_filt = []
@@ -70,7 +107,8 @@ class IRDataset(Dataset):
             ok_img = os.path.exists(ip)
             ok_box = (os.path.exists(bp) or not self.require_bbox)
             if self.only_existing:
-                if ok_img and ok_box: rows_filt.append(r)
+                if ok_img and ok_box:
+                    rows_filt.append(r)
             else:
                 rows_filt.append(r)
         if not rows_filt:
@@ -80,8 +118,10 @@ class IRDataset(Dataset):
         for r in rows_filt:
             vec = []
             for m in self.meta_cols:
-                try: vec.append(float(r[m]))
-                except: vec.append(0.0)
+                try:
+                    vec.append(float(r[m]))
+                except:
+                    vec.append(0.0)
             meta_matrix.append(vec)
         if len(meta_matrix) == 0:
             self.meta_min = torch.zeros(0)
@@ -98,8 +138,10 @@ class IRDataset(Dataset):
             bbox_path = _bbox_path_for(r)
             raw_meta = []
             for m in self.meta_cols:
-                try: raw_meta.append(float(r[m]))
-                except: raw_meta.append(0.0)
+                try:
+                    raw_meta.append(float(r[m]))
+                except:
+                    raw_meta.append(0.0)
             if len(raw_meta) > 0:
                 v = torch.tensor(raw_meta, dtype=torch.float32)
                 den = (self.meta_max - self.meta_min).clamp_min(self.eps)
@@ -130,11 +172,18 @@ class IRDataset(Dataset):
         with open(path, 'r', encoding='utf-8') as f:
             for line in f:
                 p = line.strip().split()
-                if len(p) < 5: continue
+                if len(p) < 5:
+                    continue
                 try:
-                    c = int(p[0]); x = float(p[1]); y = float(p[2]); w = float(p[3]); h = float(p[4])
-                    boxes.append([x, y, x+w, y+h]); labels.append(c+1)
-                except: continue
+                    c = int(p[0])
+                    x = float(p[1])
+                    y = float(p[2])
+                    w = float(p[3])
+                    h = float(p[4])
+                    boxes.append([x, y, x + w, y + h])
+                    labels.append(c + 1)
+                except:
+                    continue
         if not boxes:
             return torch.zeros((0, 4), dtype=torch.float32), torch.zeros((0,), dtype=torch.int64)
         return torch.tensor(boxes, dtype=torch.float32), torch.tensor(labels, dtype=torch.int64)

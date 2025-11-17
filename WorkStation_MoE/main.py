@@ -28,7 +28,7 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    epochs = 10
+    epochs = 100
     batch_size = 64
     initial_lr = 1e-3
     min_lr = 1e-5
@@ -41,8 +41,8 @@ def main():
     bbox_root = r"C:\junha\Datasets\LTDv2\Train_Labels"
     bbox_pattern = "{date}{clip_digits}{frame_digits}.txt"
 
-    train_dataset = IRDataset(csv_path=csv_path, image_root=train_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
-    test_dataset = IRDataset(csv_path=csv_path, image_root=test_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
+    train_dataset = IRDataset(csv_path=csv_path, image_root=train_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern, require_bbox=True)
+    test_dataset = IRDataset(csv_path=csv_path, image_root=test_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern, require_bbox=True)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
