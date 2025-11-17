@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from WorkStation_AuxDet.IRDataset import detection_collate
 from WorkStation_AuxDet.Utils import eval_map
-from WorkStation_MoE.IRDataset import IRDataset
+from WorkStation_MoE.IRJsonDataset import IRJsonDataset
 from WorkStation_MoE.M4E.M4E import MMMMoE_Detector
 from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Train_Step import train_step
@@ -35,14 +35,15 @@ def main():
     warmup_epochs = 2
     num_classes = 5
 
-    csv_path = r"C:\junha\Datasets\LTDv2\metadata_images.csv"
-    train_image_root = r"C:\junha\Datasets\LTDv2\mini_Train_frames"
-    test_image_root = r"C:\junha\Datasets\LTDv2\mini_Test_frames"
-    bbox_root = r"C:\junha\Datasets\LTDv2\Train_Labels"
-    bbox_pattern = "{date}{clip_digits}{frame_digits}.txt"
+    train_json = r"C:\junha\Datasets\LTDv2\mini_train.json"
+    test_json = r"C:\junha\Datasets\LTDv2\mini_test.json"
+    image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 
-    train_dataset = IRDataset(csv_path=csv_path, image_root=train_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern, require_bbox=True)
-    test_dataset = IRDataset(csv_path=csv_path, image_root=test_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern, require_bbox=True)
+    train_dataset = IRJsonDataset(json_path=train_json, image_root=image_root, require_bbox=True)
+    test_dataset = IRJsonDataset(json_path=test_json, image_root=image_root, require_bbox=True)
+
+    print("train_len:", len(train_dataset), "test_len:", len(test_dataset))
+
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
@@ -52,22 +53,26 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
 
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
-    cosine_scheduler = CosineAnnealingWarmRestarts(optimizer,T_0=3,T_mult=2,eta_min=min_lr)
+    cosine_scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=3, T_mult=2, eta_min=min_lr)
 
     for epoch in tqdm(range(epochs)):
         train_loss = train_step(train_dataloader, model, optimizer, device)
         test_info = test_step(test_dataloader, model, device)
         metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
 
-        print(f"Epoch {epoch} | LR: {optimizer.param_groups[0]['lr']:.6f} | train_loss: {train_loss:.4f} | Test(avg_det): {test_info['avg_detections']:.2f} | mAP50: {metrics['mAP@0.50']:.4f}")
+        print(f"Epoch {epoch} | LR: {optimizer.param_groups[0]['lr']:.6f} | "
+              f"train_loss: {train_loss:.4f} | "
+              f"Test(avg_det): {test_info['avg_detections']:.2f} | "
+              f"mAP50: {metrics['mAP@0.50']:.4f}")
 
         if epoch < warmup_epochs:
             warmup_scheduler.step()
         else:
             cosine_scheduler.step()
 
-        torch.save(model.state_dict(),f"C:\\junha\\Git\\RTIOD\\WorkStation_MoE\\Checkpoints\\model_epoch_{epoch + 1:02d}.pt")
+        torch.save(model.state_dict(), f"C:\\junha\\Git\\RTIOD\\WorkStation_MoE\\Checkpoints\\model_epoch_{epoch + 1:02d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
+
 
 if __name__ == "__main__":
     main()
