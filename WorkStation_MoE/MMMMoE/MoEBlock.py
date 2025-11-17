@@ -48,7 +48,7 @@ class Gate(nn.Module):
         )
     def forward(self, meta):
         logits = self.mlp(meta)
-        probs = F.softmax(logits)
+        probs = F.softmax(logits, dim=-1)
         return probs
 
 
