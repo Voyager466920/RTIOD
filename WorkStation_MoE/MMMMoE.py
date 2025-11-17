@@ -1,0 +1,70 @@
+import torch
+import torch.nn as nn
+
+from WorkStation_MoE.Experts import MoEBlock
+
+
+class MMMMoE(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = BackBone()
+        self.moeblock = MoEBlock()
+        self.FPN = torch.FPN()
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.moeblock(x)
+        return x
+
+
+
+class BackBone(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.stage1 = nn.Sequential(
+            nn.Conv2d(1, 64, 3, 2, 1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            BasicBlock(64)
+        )
+        self.stage2 = nn.Sequential(
+            nn.Conv2d(64, 128, 3, 2, 1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            BasicBlock(128)
+        )
+        self.stage3 = nn.Sequential(
+            nn.Conv2d(128, 256, 3, 2, 1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            BasicBlock(256)
+        )
+        self.stage4 = nn.Sequential(
+            nn.Conv2d(256, 512, 3, 2, 1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            BasicBlock(512)
+        )
+
+    def forward(self, x):
+        x = self.stage1(x)   # 192x144
+        x = self.stage2(x)   # 96x72
+        x = self.stage3(x)   # 48x36
+        x = self.stage4(x)   # 24x18
+        return x
+
+class BasicBlock(nn.Module):
+    def __init__(self, c):
+        super().__init__()
+        self.conv1 = nn.Conv2d(c, c, 3, 1, 1)
+        self.bn1 = nn.BatchNorm2d(c)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(c, c, 3, 1, 1)
+        self.bn2 = nn.BatchNorm2d(c)
+
+    def forward(self, x):
+        r = x
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+        x = self.relu(x + r)
+        return x
