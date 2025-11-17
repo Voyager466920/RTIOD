@@ -1,21 +1,22 @@
-import torch
 import torch.nn as nn
 
-from WorkStation_MoE.Experts import MoEBlock
+from WorkStation_MoE.MMMMoE.MoEBlock import MoEBlock
+from WorkStation_MoE.MMMMoE.FPN import ResNetFPNBackbone
 
 
 class MMMMoE(nn.Module):
-    def __init__(self):
+    def __init__(self, fpn_out:int=128):
         super().__init__()
         self.backbone = BackBone()
         self.moeblock = MoEBlock()
-        self.FPN = torch.FPN()
+        self.fpn = ResNetFPNBackbone()
 
     def forward(self, x):
         x = self.backbone(x)
         x = self.moeblock(x)
-        return x
+        c3, c2 = self.fpn(x)
 
+        return x
 
 
 class BackBone(nn.Module):
@@ -47,11 +48,11 @@ class BackBone(nn.Module):
         )
 
     def forward(self, x):
-        x = self.stage1(x)   # 192x144
-        x = self.stage2(x)   # 96x72
-        x = self.stage3(x)   # 48x36
-        x = self.stage4(x)   # 24x18
-        return x
+        c1 = self.stage1(x)   # 192x144
+        c2 = self.stage2(c1)   # 96x72
+        c3 = self.stage3(c2)   # 48x36
+        c4 = self.stage4(c3)   # 24x18
+        return c1, c2, c3, c4
 
 class BasicBlock(nn.Module):
     def __init__(self, c):
