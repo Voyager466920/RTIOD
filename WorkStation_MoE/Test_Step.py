@@ -13,7 +13,7 @@ def test_step(dataloader, model, device):
         images = [img.to(device) for img in images]
         metas = metas.to(device)
 
-        detections = model(images, metas)  # eval → detection list
+        detections = model(images, metas)
 
         for det in detections:
             total_detected += len(det["boxes"])

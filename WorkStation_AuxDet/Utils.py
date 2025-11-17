@@ -37,7 +37,7 @@ def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,)):
     for images, metas, targets in dataloader:
         images = [im.to(device) for im in images]
         metas = metas.to(device)
-        detections, _ = model(images, metas, targets=None)
+        detections = model(images, metas, targets=None)
         for j, det in enumerate(detections):
             img_id = img_offset + j
             # GT 저장
