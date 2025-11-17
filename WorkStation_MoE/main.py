@@ -30,16 +30,15 @@ def main():
     test_dataset = IRDataset(csv_path=csv_path, image_root=test_image_root, bbox_root=bbox_root, bbox_pattern=bbox_pattern)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
-
-    model = MMMMoE_Detector(num_classes=num_classes).to(device)
+    meta_dim = train_dataset.meta_dim
+    model = MMMMoE_Detector(num_classes=num_classes,meta_dim=meta_dim,).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in tqdm(range(epochs)):
         train_loss = train_step(train_dataloader, model, optimizer, device)
-        test_loss = test_step(test_dataloader, model, device)
+        test_info  = test_step(test_dataloader, model, device)
         metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
-        print(f"Epoch {epoch} | Train Step : train_loss : {train_loss} | Test Step : test_loss : {test_loss} | Test mAP50={metrics['mAP@0.50']:.4f}")
-
+        print(f"Epoch {epoch} | train_loss: {train_loss:.4f} |Test(avg_det): {test_info['avg_detections']:.2f} | mAP50: {metrics['mAP@0.50']:.4f}")
         torch.save(model.state_dict(), f"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch + 1:02d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
 

@@ -8,7 +8,7 @@ def train_step(dataloader, model, optimizer, device):
         metas = metas.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        _, losses = model(images, metas, targets)
+        losses = model(images, metas, targets)
         loss = sum(losses.values())
 
         optimizer.zero_grad()
