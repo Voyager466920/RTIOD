@@ -4,11 +4,12 @@ import torch.cuda
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from Model.AuxDetScratch import AuxDetScratch
-from WorkStation_AuxDet.IRDataset import IRDataset, detection_collate
-from WorkStation_AuxDet.Test_Step import test_step
-from WorkStation_AuxDet.Train_Step import train_step
+from WorkStation_AuxDet.IRDataset import detection_collate
 from WorkStation_AuxDet.Utils import eval_map
+from WorkStation_MoE.IRDataset import IRDataset
+from WorkStation_MoE.M4E.M4E import MMMMoE_Detector
+from WorkStation_MoE.Test_Step import test_step
+from WorkStation_MoE.Train_Step import train_step
 
 
 def main():
@@ -30,7 +31,7 @@ def main():
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
-    model = AuxDetScratch(meta_in_dim=train_dataset.meta_dim, meta_hidden=64, meta_out_dim=128, num_classes=num_classes).to(device)
+    model = MMMMoE_Detector(num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     for epoch in tqdm(range(epochs)):
@@ -39,7 +40,7 @@ def main():
         metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
         print(f"Epoch {epoch} | Train Step : train_loss : {train_loss} | Test Step : test_loss : {test_loss} | Test mAP50={metrics['mAP@0.50']:.4f}")
 
-        torch.save(model.state_dict(), f"/WorkStation_AuxDet\Checkpoints\model_epoch_{epoch + 1:03d}.pt")
+        torch.save(model.state_dict(), f"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch + 1:02d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
 
 if __name__=="__main__":

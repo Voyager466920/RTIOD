@@ -4,16 +4,15 @@ import torch.nn.functional as F
 
 
 class MoEBlock(nn.Module):
-    def __init__(self, embed_dim:int=128, mlp_dim:int=128, num_experts:int=6, dropout:float=0.1):
+    def __init__(self, in_channels:int=512, hidden_channels:int=512, num_experts:int=6, meta_dim:int=12, gate_hidden_dim:int=128, dropout:float=0.1):
         super().__init__()
         self.gate_dropout = nn.Dropout(dropout)
         self.num_experts = num_experts
 
-        self.norm = RMSNorm(embed_dim)
         self.experts = nn.ModuleList(
-            [Expert(embed_dim, mlp_dim) for _ in range(num_experts)]
+            [Expert(in_channels=in_channels, hidden_channels=hidden_channels) for _ in range(num_experts)]
         )
-        self.gate = Gate(num_experts=num_experts, meta_dim=9, hidden_dim=128)
+        self.gate = Gate(num_experts=num_experts, meta_dim=meta_dim, hidden_dim=gate_hidden_dim)
 
     def forward(self, moe_c4, meta):
         gate_probs = self.gate(meta)
@@ -21,7 +20,7 @@ class MoEBlock(nn.Module):
 
         out = torch.zeros_like(moe_c4)
         for eid, expert in enumerate(self.experts):
-            mask = (top1_idx == eid)
+            mask = top1_idx == eid
             if not mask.any():
                 continue
             idx = mask.nonzero(as_tuple=False).squeeze(-1)
@@ -37,20 +36,19 @@ class MoEBlock(nn.Module):
         return out, balance_loss
 
 
-
 class Gate(nn.Module):
-    def __init__(self, num_experts: int, meta_dim:int=9, hidden_dim:int=128):
+    def __init__(self, num_experts: int, meta_dim:int, hidden_dim:int=128):
         super().__init__()
         self.mlp = nn.Sequential(
             nn.Linear(meta_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, num_experts)
         )
+
     def forward(self, meta):
         logits = self.mlp(meta)
         probs = F.softmax(logits, dim=-1)
         return probs
-
 
 
 class Expert(nn.Module):
@@ -68,12 +66,3 @@ class Expert(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         return x
-
-
-class RMSNorm(nn.Module):
-    def __init__(self, dim, eps=1e-6):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(dim))
-        self.eps = eps
-    def forward(self, x):
-        return self.weight * x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)

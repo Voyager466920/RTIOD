@@ -6,14 +6,14 @@ from torchvision.models.detection.image_list import ImageList
 from collections import OrderedDict
 from torchvision.ops import FeaturePyramidNetwork
 
-from WorkStation_MoE.MMMMoE.MoEBlock import MoEBlock
-from WorkStation_MoE.MMMMoE.RPN_ROI_Head import build_rpn_and_roi_heads
+from WorkStation_MoE.M4E.MoEBlock import MoEBlock
+from WorkStation_MoE.M4E.RPN_ROI_Head import build_rpn_and_roi_heads
 
 
 class MMMMoE_Detector(nn.Module):
-    def __init__(self, num_classes:int=5, fpn_out:int=256):
+    def __init__(self, num_classes:int=5, fpn_out:int=256, meta_dim:int=12):
         super().__init__()
-        self.backbone = MMMMoE(fpn_out=fpn_out)
+        self.backbone = MMMMoE(fpn_out=fpn_out, meta_dim=meta_dim)
         self.rpn, self.roi_heads = build_rpn_and_roi_heads(
             backbone_out_channels=self.backbone.out_channels,
             num_classes=num_classes,
@@ -54,7 +54,7 @@ class MMMMoE(nn.Module):
     def __init__(self, fpn_out:int=256, num_experts=6, meta_dim=9):
         super().__init__()
         self.backbone = BackBone()
-        self.moeblock = MoEBlock(num_experts=num_experts)
+        self.moeblock = MoEBlock(num_experts=num_experts, meta_dim=meta_dim)
         self.fpn = FeaturePyramidNetwork(
             in_channels_list=[128, 256, 512, 512],
             out_channels=fpn_out
