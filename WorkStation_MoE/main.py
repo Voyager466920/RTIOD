@@ -33,12 +33,12 @@ def main():
     warmup_epochs = 2
     num_classes = 5
 
-    train_json = r"C:\junha\Datasets\LTDv2\Train.json"
-    test_json = r"C:\junha\Datasets\LTDv2\Valid.json"
+    train_json = r"C:\junha\Datasets\LTDv2\Train_train.json"
+    val_json = r"C:\junha\Datasets\LTDv2\Train_val.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 
     train_dataset = IRJsonDataset(json_path=train_json, image_root=image_root, require_bbox=True)
-    test_dataset = IRJsonDataset(json_path=test_json, image_root=image_root, require_bbox=True)
+    test_dataset = IRJsonDataset(json_path=val_json, image_root=image_root, require_bbox=True)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
