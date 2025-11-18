@@ -1,4 +1,5 @@
 from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
 
 import torch
 import torch.cuda
@@ -9,7 +10,6 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from WorkStation_MoE.Utils import eval_map
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
-from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Train_Step import train_step
 
 
@@ -32,6 +32,12 @@ def main():
     min_lr = 1e-5
     warmup_epochs = 2
     num_classes = 5
+
+    train_losses = []
+    mAP50_list = []
+    mAP50_95_list = []
+    best_epoch = -1
+    best_map50 = -1
 
     train_json = r"C:\junha\Datasets\LTDv2\Train_train.json"
     val_json = r"C:\junha\Datasets\LTDv2\Train_val.json"
@@ -56,43 +62,43 @@ def main():
         moe.num_batches.zero_()
 
         train_loss = train_step(train_dataloader, model, optimizer, device)
+        metrics_all, _ = eval_map(test_dataloader, model, device, iou_ths=(0.5,), return_per_class=True)
 
-        metrics_all, per_class = eval_map(test_dataloader,model,device,iou_ths=(0.5,), return_per_class=True)
         mAP50 = metrics_all["mAP@0.50"]
         mAP50_95 = metrics_all["mAP@[0.50:0.95]"]
 
-        total_detected = test_step(test_dataloader, model, device)["avg_detections"]
+        train_losses.append(train_loss)
+        mAP50_list.append(mAP50)
+        mAP50_95_list.append(mAP50_95)
 
-        print(
-            f"Epoch {epoch} | LR: {optimizer.param_groups[0]['lr']:.6f} | "
-            f"train_loss: {train_loss:.4f} | "
-            f"Test(avg_det): {total_detected:.2f} | "
-            f"mAP50: {mAP50:.4f} | mAP50:95: {mAP50_95:.4f}"
-        )
-
-        print("per-class mAP50:")
-        for cid, v in per_class.items():
-            print(f"  cls {cid}: {v['mAP@0.50']:.4f}")
-
-        print("per-class mAP50:95:")
-        for cid, v in per_class.items():
-            print(f"  cls {cid}: {v['mAP@[0.50:0.95]']:.4f}")
-
-        soft = moe.usage_soft
-        hard = moe.usage_hard
-        soft_freq = (soft / soft.sum().clamp_min(1e-8)).detach().cpu().tolist()
-        hard_freq = (hard / hard.sum().clamp_min(1e-8)).detach().cpu().tolist()
-
-        print("expert soft freq:", soft_freq)
-        print("expert hard freq:", hard_freq)
+        if mAP50 > best_map50:
+            best_map50 = mAP50
+            best_epoch = epoch
 
         if epoch < warmup_epochs:
             warmup_scheduler.step()
         else:
             cosine_scheduler.step()
 
-        torch.save(model.state_dict(), r"C:/junha/Git/RTIOD/WorkStation_MoE/Checkpoints/model_epoch_{epoch + 1:02d}.pt")
-        print(f"saved: model_epoch_{epoch + 1:03d}.pt")
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"Epoch {epoch + 1:02d}/{epochs} | Loss: {train_loss:.4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
+
+        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch+1:02d}.pt")
+
+    plt.figure(figsize=(10,5))
+    plt.plot(train_losses, label="Train Loss")
+    plt.plot(mAP50_list, label="mAP@0.50")
+    plt.plot(mAP50_95_list, label="mAP@[0.50:0.95]")
+    plt.legend()
+    plt.xlabel("Epoch")
+    plt.ylabel("Value")
+    plt.title("Training Curves")
+    plt.savefig("training_curves.png", dpi=200)
+    plt.close()
+
+    print(f"Best Epoch = {best_epoch}")
+    print(f"Best mAP50 = {best_map50:.4f}")
+
 
 
 if __name__=="__main__":

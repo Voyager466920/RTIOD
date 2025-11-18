@@ -3,12 +3,11 @@ import random
 
 # 경로 설정
 train_json_path = r"C:\junha\Datasets\LTDv2\Train.json"
-out_train_json_path = r"C:\junha\Datasets\LTDv2\mini_Train.json"
-out_val_json_path = r"C:\junha\Datasets\LTDv2\mini_Test.json"
+out_train_json_path = r"C:\junha\Datasets\LTDv2\Train_train.json"
+out_val_json_path = r"C:\junha\Datasets\LTDv2\Train_val.json"
 
-train_size = 12000
-val_size = 1200
-seed = 42
+split_ratio = 0.8   # 8:2
+seed = 42           # seed 고정
 
 # Load JSON
 with open(train_json_path, "r", encoding="utf-8") as f:
@@ -20,18 +19,14 @@ info = data.get("info", {})
 licenses = data.get("licenses", [])
 categories = data.get("categories", [])
 
-# Shuffle images
+# Shuffle images with fixed seed
 random.seed(seed)
 random.shuffle(images)
 
-# Safety: 이미지가 충분히 있는지 체크
-total_images = len(images)
-if total_images < train_size + val_size:
-    raise ValueError(f"총 이미지 {total_images}개로는 {train_size}+{val_size} 개수를 만족 못합니다.")
-
-# Split with fixed counts
-train_images = images[:train_size]
-val_images = images[train_size:train_size + val_size]
+# Compute split index
+num_train = int(len(images) * split_ratio)
+train_images = images[:num_train]
+val_images = images[num_train:]
 
 # Map image IDs
 train_ids = {img["id"] for img in train_images}
@@ -41,7 +36,7 @@ val_ids = {img["id"] for img in val_images}
 train_annotations = [a for a in annotations if a["image_id"] in train_ids]
 val_annotations = [a for a in annotations if a["image_id"] in val_ids]
 
-# Create JSONs
+# Create split JSONs
 train_json = {
     "info": info,
     "licenses": licenses,
