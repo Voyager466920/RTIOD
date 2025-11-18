@@ -28,11 +28,10 @@ def average_precision(tp, fp, n_gt):
     return ap
 
 @torch.inference_mode()
-def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,)):
+def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,), return_per_class=False):
     model.eval()
-    # 수집: 클래스별 예측/GT
-    preds_by_cls = {}  # c -> list of (img_id, score, box[4])
-    gts_by_cls = {}    # c -> dict img_id -> list of boxes
+    preds_by_cls = {}
+    gts_by_cls = {}
     img_offset = 0
     for images, metas, targets in dataloader:
         images = [im.to(device) for im in images]
@@ -40,7 +39,6 @@ def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,)):
         detections = model(images, metas, targets=None)
         for j, det in enumerate(detections):
             img_id = img_offset + j
-            # GT 저장
             gt = targets[j]
             for c in gt["labels"].tolist():
                 gts_by_cls.setdefault(c, {})
@@ -48,7 +46,6 @@ def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,)):
                 gts_by_cls[c].setdefault(img_id, [])
             for b, c in zip(gt["boxes"], gt["labels"]):
                 gts_by_cls[c.item()][img_id].append(b.cpu())
-            # 예측 저장
             boxes = det["boxes"].cpu()
             labels = det["labels"].cpu()
             scores = det["scores"].cpu()
@@ -56,40 +53,69 @@ def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,)):
                 preds_by_cls.setdefault(c.item(), []).append((img_id, float(s), b))
         img_offset += len(images)
 
-    # AP 계산
     classes = sorted(set(list(preds_by_cls.keys()) + list(gts_by_cls.keys())))
     results = {}
-    for iou_thr in iou_ths:
+    per_class = {}
+
+    coco_ious = [0.5 + 0.05 * i for i in range(10)]
+    need_coco = (len(iou_ths) == 1 and abs(iou_ths[0] - 0.5) < 1e-6)
+    all_ious = sorted(set(list(iou_ths) + (coco_ious if need_coco else [])))
+
+    for c in classes:
+        per_class[c] = {}
+
+    for iou_thr in all_ious:
         aps = []
         for c in classes:
             preds = preds_by_cls.get(c, [])
             gts = gts_by_cls.get(c, {})
             n_gt = sum(len(v) for v in gts.values())
             if n_gt == 0:
+                per_class[c][f"mAP@{iou_thr:.2f}"] = 0.0
                 continue
-            preds.sort(key=lambda x: x[1], reverse=True)  # score desc
+            preds.sort(key=lambda x: x[1], reverse=True)
             matched = {img_id: torch.zeros(len(gts[img_id]), dtype=torch.bool) for img_id in gts.keys()}
             tp, fp = [], []
             for img_id, score, box in preds:
                 if img_id not in gts:
-                    fp.append(1); tp.append(0); continue
-                gt_boxes = torch.stack(gts[img_id]) if len(gts[img_id]) else torch.zeros((0,4))
+                    fp.append(1)
+                    tp.append(0)
+                    continue
+                gt_boxes = torch.stack(gts[img_id]) if len(gts[img_id]) else torch.zeros((0, 4))
                 ious = box_iou(box.unsqueeze(0), gt_boxes).squeeze(0) if gt_boxes.numel() else torch.zeros(0)
-                if len(ious)==0:
-                    fp.append(1); tp.append(0); continue
+                if len(ious) == 0:
+                    fp.append(1)
+                    tp.append(0)
+                    continue
                 best_iou, best_idx = torch.max(ious, dim=0)
                 if best_iou >= iou_thr and not matched[img_id][best_idx]:
                     matched[img_id][best_idx] = True
-                    tp.append(1); fp.append(0)
+                    tp.append(1)
+                    fp.append(0)
                 else:
-                    fp.append(1); tp.append(0)
+                    fp.append(1)
+                    tp.append(0)
             ap = average_precision(tp, fp, n_gt)
             aps.append(ap)
-        results[f"mAP@{iou_thr:.2f}"] = sum(aps)/len(aps) if aps else 0.0
+            per_class[c][f"mAP@{iou_thr:.2f}"] = ap
+        results[f"mAP@{iou_thr:.2f}"] = sum(aps) / len(aps) if aps else 0.0
 
-    # COCO식 0.50:0.95
-    if len(iou_ths) == 1 and abs(iou_ths[0]-0.5) < 1e-6:
-        ious = [0.5 + 0.05*i for i in range(10)]
-        coco = eval_map(dataloader, model, device, tuple(ious))
-        results["mAP@[0.50:0.95]"] = sum(v for k,v in coco.items())/len(coco) if coco else 0.0
+    if need_coco:
+        vals = []
+        for thr in coco_ious:
+            key = f"mAP@{thr:.2f}"
+            if key in results:
+                vals.append(results[key])
+        results["mAP@[0.50:0.95]"] = sum(vals) / len(vals) if vals else 0.0
+        for c in classes:
+            vals_c = []
+            for thr in coco_ious:
+                key = f"mAP@{thr:.2f}"
+                if key in per_class[c]:
+                    vals_c.append(per_class[c][key])
+            per_class[c]["mAP@[0.50:0.95]"] = sum(vals_c) / len(vals_c) if vals_c else 0.0
+
+    if return_per_class:
+        return results, per_class
     return results
+

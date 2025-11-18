@@ -6,9 +6,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
-from WorkStation_MoE.IRDataset import detection_collate
 from WorkStation_MoE.Utils import eval_map
-from WorkStation_MoE.IRJsonDataset import IRJsonDataset
+from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
 from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Train_Step import train_step
@@ -40,9 +39,6 @@ def main():
 
     train_dataset = IRJsonDataset(json_path=train_json, image_root=image_root, require_bbox=True)
     test_dataset = IRJsonDataset(json_path=test_json, image_root=image_root, require_bbox=True)
-
-    print("train_len:", len(train_dataset), "test_len:", len(test_dataset))
-
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
@@ -50,7 +46,6 @@ def main():
     model = MMMMoE_Detector(num_classes=num_classes, meta_dim=meta_dim).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
-
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
     cosine_scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=3, T_mult=2, eta_min=min_lr)
 
@@ -62,14 +57,7 @@ def main():
 
         train_loss = train_step(train_dataloader, model, optimizer, device)
 
-        metrics_all, per_class = eval_map(
-            test_dataloader,
-            model,
-            device,
-            iou_ths=(0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95),
-            return_per_class=True,
-        )
-
+        metrics_all, per_class = eval_map(test_dataloader,model,device,iou_ths=(0.5,), return_per_class=True)
         mAP50 = metrics_all["mAP@0.50"]
         mAP50_95 = metrics_all["mAP@[0.50:0.95]"]
 
@@ -105,3 +93,7 @@ def main():
 
         torch.save(model.state_dict(), r"C:/junha/Git/RTIOD/WorkStation_MoE/Checkpoints/model_epoch_{epoch + 1:02d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
+
+
+if __name__=="__main__":
+    main()
