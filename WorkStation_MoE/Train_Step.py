@@ -20,7 +20,7 @@ def train_step(dataloader, model, optimizer, device):
         loss = sum(losses.values())
 
         if not torch.isfinite(loss): # nan인 일부 배치 건너뛰기 (bbox가 이상한 경우)
-            print("non-finite loss detected:", {k: v.item() for k, v in losses.items()})
+            #print("non-finite loss detected:", {k: v.item() for k, v in losses.items()})
             optimizer.zero_grad()
             continue
 
