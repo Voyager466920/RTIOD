@@ -26,15 +26,15 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    epochs = 100
+    epochs = 40
     batch_size = 64
     initial_lr = 1e-3
     min_lr = 1e-5
     warmup_epochs = 2
     num_classes = 5
 
-    train_json = r"C:\junha\Datasets\LTDv2\mini_train.json"
-    test_json = r"C:\junha\Datasets\LTDv2\mini_test.json"
+    train_json = r"C:\junha\Datasets\LTDv2\Train.json"
+    test_json = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 
     train_dataset = IRJsonDataset(json_path=train_json, image_root=image_root, require_bbox=True)

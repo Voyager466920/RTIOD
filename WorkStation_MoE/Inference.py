@@ -56,7 +56,7 @@ def run_inference_and_visualize(
         w, h = img.size
 
     draw = ImageDraw.Draw(img)
-    thickness = 4
+    thickness = 2
 
     for box in boxes:
         x1, y1, x2, y2 = box.tolist()
@@ -69,7 +69,7 @@ def run_inference_and_visualize(
 
 
 if __name__ == "__main__":
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_08.pt"
+    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_22.pt"
     json_path = r"C:\junha\Datasets\LTDv2\mini_test.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
     save_dir = r"C:\junha\Git\RTIOD\WorkStation_MoE\Inference_Result"
