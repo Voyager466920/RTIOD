@@ -173,3 +173,10 @@ class IRJsonDataset(Dataset):
             "image_id": torch.tensor([image_id], dtype=torch.int64),
         }
         return image, meta, target
+
+def detection_collate(batch):
+    images, metas, targets = zip(*batch)
+    images = list(images)
+    metas = torch.stack(metas, dim=0) if metas and metas[0].numel() > 0 else torch.zeros((len(images), 0), dtype=torch.float32)
+    targets = list(targets)
+    return images, metas, targets

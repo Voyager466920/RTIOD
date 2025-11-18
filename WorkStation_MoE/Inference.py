@@ -3,7 +3,7 @@ import torch
 from PIL import Image, ImageDraw
 
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset
-from WorkStation_MoE.M4E.M4E import MMMMoE_Detector
+from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
 
 
 def run_inference_and_visualize(
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_05.pt"
     json_path = r"C:\junha\Datasets\LTDv2\mini_test.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
-    save_dir = r"C:\junha\Git\RTIOD\WorkStation_MoE"
+    save_dir = r"C:\junha\Git\RTIOD\WorkStation_MoE\Inference_Result"
 
     run_inference_and_visualize(
         ckpt_path=ckpt_path,

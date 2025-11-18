@@ -13,10 +13,19 @@ class MoEBlock(nn.Module):
             [Expert(in_channels=in_channels, hidden_channels=hidden_channels) for _ in range(num_experts)]
         )
         self.gate = Gate(num_experts=num_experts, meta_dim=meta_dim, hidden_dim=gate_hidden_dim)
+        self.register_buffer("usage_soft", torch.zeros(num_experts))
+        self.register_buffer("usage_hard", torch.zeros(num_experts))
+        self.register_buffer("num_batches", torch.tensor(0., dtype=torch.float32))
 
     def forward(self, moe_c4, meta):
         gate_probs = self.gate(meta)
         top1_idx = gate_probs.argmax(dim=-1)
+
+        with torch.no_grad():
+            self.num_batches += 1
+            self.usage_soft += gate_probs.sum(dim=0)
+            hard = torch.bincount(top1_idx, minlength=self.num_experts).float().to(self.usage_hard.device)
+            self.usage_hard += hard
 
         out = torch.zeros_like(moe_c4)
         for eid, expert in enumerate(self.experts):

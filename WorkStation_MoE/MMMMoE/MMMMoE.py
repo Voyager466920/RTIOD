@@ -6,8 +6,8 @@ from torchvision.models.detection.image_list import ImageList
 from collections import OrderedDict
 from torchvision.ops import FeaturePyramidNetwork
 
-from WorkStation_MoE.M4E.MoEBlock import MoEBlock
-from WorkStation_MoE.M4E.RPN_ROI_Head import build_rpn_and_roi_heads
+from WorkStation_MoE.MMMMoE.MoEBlock import MoEBlock
+from WorkStation_MoE.MMMMoE.RPN_ROI_Head import build_rpn_and_roi_heads
 
 
 class MMMMoE_Detector(nn.Module):

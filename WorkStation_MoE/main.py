@@ -6,10 +6,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
-from WorkStation_AuxDet.IRDataset import detection_collate
-from WorkStation_AuxDet.Utils import eval_map
+from WorkStation_MoE.IRDataset import detection_collate
+from WorkStation_MoE.Utils import eval_map
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset
-from WorkStation_MoE.M4E.M4E import MMMMoE_Detector
+from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
 from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Train_Step import train_step
 
@@ -24,7 +24,6 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
             return [base_lr for base_lr in self.base_lrs]
         warmup_factor = (self.last_epoch + 1) / self.warmup_epochs
         return [base_lr * warmup_factor for base_lr in self.base_lrs]
-
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -56,23 +55,53 @@ def main():
     cosine_scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=3, T_mult=2, eta_min=min_lr)
 
     for epoch in tqdm(range(epochs)):
-        train_loss = train_step(train_dataloader, model, optimizer, device)
-        test_info = test_step(test_dataloader, model, device)
-        metrics = eval_map(test_dataloader, model, device, iou_ths=(0.5,))
+        moe = model.backbone.moeblock
+        moe.usage_soft.zero_()
+        moe.usage_hard.zero_()
+        moe.num_batches.zero_()
 
-        print(f"Epoch {epoch} | LR: {optimizer.param_groups[0]['lr']:.6f} | "
-              f"train_loss: {train_loss:.4f} | "
-              f"Test(avg_det): {test_info['avg_detections']:.2f} | "
-              f"mAP50: {metrics['mAP@0.50']:.4f}")
+        train_loss = train_step(train_dataloader, model, optimizer, device)
+
+        metrics_all, per_class = eval_map(
+            test_dataloader,
+            model,
+            device,
+            iou_ths=(0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95),
+            return_per_class=True,
+        )
+
+        mAP50 = metrics_all["mAP@0.50"]
+        mAP50_95 = metrics_all["mAP@[0.50:0.95]"]
+
+        total_detected = test_step(test_dataloader, model, device)["avg_detections"]
+
+        print(
+            f"Epoch {epoch} | LR: {optimizer.param_groups[0]['lr']:.6f} | "
+            f"train_loss: {train_loss:.4f} | "
+            f"Test(avg_det): {total_detected:.2f} | "
+            f"mAP50: {mAP50:.4f} | mAP50:95: {mAP50_95:.4f}"
+        )
+
+        print("per-class mAP50:")
+        for cid, v in per_class.items():
+            print(f"  cls {cid}: {v['mAP@0.50']:.4f}")
+
+        print("per-class mAP50:95:")
+        for cid, v in per_class.items():
+            print(f"  cls {cid}: {v['mAP@[0.50:0.95]']:.4f}")
+
+        soft = moe.usage_soft
+        hard = moe.usage_hard
+        soft_freq = (soft / soft.sum().clamp_min(1e-8)).detach().cpu().tolist()
+        hard_freq = (hard / hard.sum().clamp_min(1e-8)).detach().cpu().tolist()
+
+        print("expert soft freq:", soft_freq)
+        print("expert hard freq:", hard_freq)
 
         if epoch < warmup_epochs:
             warmup_scheduler.step()
         else:
             cosine_scheduler.step()
 
-        torch.save(model.state_dict(), f"C:\\junha\\Git\\RTIOD\\WorkStation_MoE\\Checkpoints\\model_epoch_{epoch + 1:02d}.pt")
+        torch.save(model.state_dict(), r"C:/junha/Git/RTIOD/WorkStation_MoE/Checkpoints/model_epoch_{epoch + 1:02d}.pt")
         print(f"saved: model_epoch_{epoch + 1:03d}.pt")
-
-
-if __name__ == "__main__":
-    main()
