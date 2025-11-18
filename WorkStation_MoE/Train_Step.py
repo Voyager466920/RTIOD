@@ -1,15 +1,28 @@
+import torch
+
 def train_step(dataloader, model, optimizer, device):
     model.train()
     total_loss = 0.0
     total_batches = 0
 
-    for images, metas, targets in dataloader:
+    for i, (images, metas, targets) in enumerate(dataloader):
         images = [img.to(device) for img in images]
         metas = metas.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         losses = model(images, metas, targets)
+
+        if i == 0:
+            print("losses dict:")
+            for k, v in losses.items():
+                print(k, v.detach().cpu().item())
+
         loss = sum(losses.values())
+
+        if not torch.isfinite(loss):
+            print("non-finite loss detected:", {k: v.item() for k, v in losses.items()})
+            optimizer.zero_grad()
+            continue
 
         optimizer.zero_grad()
         loss.backward()
