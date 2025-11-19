@@ -69,8 +69,8 @@ def run_inference_and_visualize(
 
 
 if __name__ == "__main__":
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_22.pt"
-    json_path = r"C:\junha\Datasets\LTDv2\mini_test.json"
+    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_15.pt"
+    json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
     save_dir = r"C:\junha\Git\RTIOD\WorkStation_MoE\Inference_Result"
 
