@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from WorkStation_FasterRCNN.Utils import eval_map
-from WorkStation_FasterRCNN.IRJsonDataset import IRJsonDataset, detection_collate
+from WorkStation_FasterRCNN.IRNoMetaDataset import IRJsonDataset, detection_collate
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor, fasterrcnn_resnet50_fpn
 from WorkStation_FasterRCNN.Train_Step import train_step
 
@@ -27,7 +27,7 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     epochs = 40
-    batch_size = 64
+    batch_size = 32
     initial_lr = 1e-3
     min_lr = 1e-5
     warmup_epochs = 2
@@ -51,6 +51,7 @@ def main():
     model = fasterrcnn_resnet50_fpn(pretrained=True)
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+    model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
