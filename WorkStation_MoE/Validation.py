@@ -1,9 +1,9 @@
 import torch
 from torch.utils.data import DataLoader
 
-from WorkStation_MoE.Utils import eval_map
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
+from WorkStation_MoE.Validation_Gemini import eval_map
 
 
 def validate_model(
@@ -62,7 +62,7 @@ def validate_model(
 
 
 if __name__ == "__main__":
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_19.pt"
+    ckpt_path = r"C:/WorkStation_MoE/Checkpoints_Workstation/model_epoch_39.pt"
     json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 

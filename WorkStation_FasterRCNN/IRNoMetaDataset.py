@@ -96,10 +96,14 @@ class IRJsonDataset(Dataset):
         labels_list = []
         for a in anns:
             x, y, w, h = a["bbox"]
+            if w <= 0 or h <= 0:
+                continue
             x1 = float(x)
             y1 = float(y)
             x2 = float(x + w)
             y2 = float(y + h)
+            if x2 <= x1 or y2 <= y1:
+                continue
             boxes_list.append([x1, y1, x2, y2])
             cid = int(a["category_id"])
             labels_list.append(cid)

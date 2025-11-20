@@ -1,11 +1,12 @@
 import torch
+from tqdm.auto import tqdm
 
 def train_step(dataloader, model, optimizer, device):
     model.train()
     total_loss = 0.0
     total_batches = 0
 
-    for i, (images, targets) in enumerate(dataloader):
+    for i, (images, targets) in tqdm(enumerate(dataloader), total=len(dataloader)):
         images = [img.to(device) for img in images]
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -18,8 +19,7 @@ def train_step(dataloader, model, optimizer, device):
 
         loss = sum(losses.values())
 
-        if not torch.isfinite(loss): # nan인 일부 배치 건너뛰기 (bbox가 이상한 경우)
-            #print("non-finite loss detected:", {k: v.item() for k, v in losses.items()})
+        if not torch.isfinite(loss):
             optimizer.zero_grad()
             continue
 

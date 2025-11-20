@@ -2,23 +2,20 @@ import torch
 from torch.utils.data import DataLoader
 
 def box_iou(boxes1, boxes2):
-    # boxes: [N,4] xyxy
     area1 = (boxes1[:,2]-boxes1[:,0]).clamp(min=0) * (boxes1[:,3]-boxes1[:,1]).clamp(min=0)
     area2 = (boxes2[:,2]-boxes2[:,0]).clamp(min=0) * (boxes2[:,3]-boxes2[:,1]).clamp(min=0)
-    lt = torch.max(boxes1[:,None,:2], boxes2[:,:2])      # [N,M,2]
-    rb = torch.min(boxes1[:,None,2:], boxes2[:,2:])      # [N,M,2]
-    wh = (rb - lt).clamp(min=0)                          # [N,M,2]
-    inter = wh[:,:,0] * wh[:,:,1]                        # [N,M]
+    lt = torch.max(boxes1[:,None,:2], boxes2[:,:2])
+    rb = torch.min(boxes1[:,None,2:], boxes2[:,2:])
+    wh = (rb - lt).clamp(min=0)
+    inter = wh[:,:,0] * wh[:,:,1]
     union = area1[:,None] + area2 - inter
     return inter / (union + 1e-8)
 
 def average_precision(tp, fp, n_gt):
-    # tp/fp: list of 0/1 along score-desc order
     tp = torch.tensor(tp).cumsum(0)
     fp = torch.tensor(fp).cumsum(0)
     recall = tp / max(1, n_gt)
     precision = tp / torch.clamp(tp + fp, min=1)
-    # 11-point interpolation not used; integrate precision envelope
     mrec = torch.cat([torch.tensor([0.]), recall, torch.tensor([1.])])
     mpre = torch.cat([torch.tensor([0.]), precision, torch.tensor([0.])])
     for i in range(mpre.numel()-1, 0, -1):
@@ -33,9 +30,9 @@ def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,), return_per_c
     preds_by_cls = {}
     gts_by_cls = {}
     img_offset = 0
-    for images, metas, targets in dataloader:
+    for images, targets in dataloader:
         images = [im.to(device) for im in images]
-        detections = model(images, targets=None)
+        detections = model(images)
         for j, det in enumerate(detections):
             img_id = img_offset + j
             gt = targets[j]
@@ -117,4 +114,3 @@ def eval_map(dataloader: DataLoader, model, device, iou_ths=(0.5,), return_per_c
     if return_per_class:
         return results, per_class
     return results
-

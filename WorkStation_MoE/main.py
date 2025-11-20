@@ -7,6 +7,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
+from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Utils import eval_map
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
@@ -49,7 +50,7 @@ def main():
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
     meta_dim = train_dataset.meta_dim
-    model = MMMMoE_Detector(num_classes=num_classes, meta_dim=meta_dim).to(device)
+    model = MMMMoE_Detector(backbone="scratch",num_classes=num_classes, meta_dim=meta_dim).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
@@ -62,6 +63,7 @@ def main():
         moe.num_batches.zero_()
 
         train_loss = train_step(train_dataloader, model, optimizer, device)
+        test_loss = test_step(test_dataloader, model, device)
         metrics_all, _ = eval_map(test_dataloader, model, device, iou_ths=(0.5,), return_per_class=True)
 
         mAP50 = metrics_all["mAP@0.50"]
@@ -81,7 +83,7 @@ def main():
             cosine_scheduler.step()
 
         current_lr = optimizer.param_groups[0]['lr']
-        print(f"Epoch {epoch + 1:02d}/{epochs} | Loss: {train_loss:.4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
+        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | Test Loss: {test_loss:4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
 
         torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch+1:02d}.pt")
 

@@ -1,23 +1,28 @@
-# Test_Step.py
-
 import torch
 
 @torch.no_grad()
 def test_step(dataloader, model, device):
-    model.eval()
+    prev_mode = model.training
+    model.train()
 
-    total_detected = 0
-    total_images = 0
+    total_loss = 0.0
+    total_batches = 0
 
     for images, metas, targets in dataloader:
         images = [img.to(device) for img in images]
         metas = metas.to(device)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        detections = model(images, metas)
+        losses = model(images, metas, targets)
+        loss = sum(v for v in losses.values())
 
-        for det in detections:
-            total_detected += len(det["boxes"])
-        total_images += len(images)
+        if not torch.isfinite(loss):
+            continue
 
-    avg_det = total_detected / max(1, total_images)
-    return {"avg_detections": avg_det}
+        total_loss += loss.item()
+        total_batches += 1
+
+    if not prev_mode:
+        model.eval()
+
+    return total_loss / max(1, total_batches)
