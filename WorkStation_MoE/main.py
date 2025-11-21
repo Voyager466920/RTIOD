@@ -7,7 +7,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
-from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Utils import eval_map
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
@@ -28,7 +27,7 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     epochs = 40
-    batch_size = 64
+    batch_size = 32
     initial_lr = 1e-3
     min_lr = 1e-5
     warmup_epochs = 2
@@ -63,7 +62,6 @@ def main():
         moe.num_batches.zero_()
 
         train_loss = train_step(train_dataloader, model, optimizer, device)
-        test_loss = test_step(test_dataloader, model, device)
         metrics_all, _ = eval_map(test_dataloader, model, device, iou_ths=(0.5,), return_per_class=True)
 
         mAP50 = metrics_all["mAP@0.50"]
@@ -83,9 +81,9 @@ def main():
             cosine_scheduler.step()
 
         current_lr = optimizer.param_groups[0]['lr']
-        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | Test Loss: {test_loss:4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
+        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
 
-        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch+1:02d}.pt")
+        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Resnet50\model_epoch_{epoch+1:02d}.pt")
 
     plt.figure(figsize=(10,5))
     plt.plot(train_losses, label="Train Loss")
