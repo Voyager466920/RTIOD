@@ -20,7 +20,8 @@ def main():
 
     transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
-        transforms.Resize((96, 96)),
+        transforms.RandomResizedCrop(96, scale=(0.6, 1.0)),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
 
@@ -29,11 +30,11 @@ def main():
 
     train_dataset = datasets.ImageFolder(root=train_dataset_path, transform=transform)
     test_dataset = datasets.ImageFolder(root=test_dataset_path, transform=transform)
-    train_sampler = BalancedBatchSampler(train_dataset.targets, batch_size, num_classes)
-    test_sampler = BalancedBatchSampler(train_dataset.targets, batch_size, num_classes)
 
-    train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler, pin_memory=True)
-    test_dataloader = DataLoader(test_dataset, batch_sampler=test_sampler, pin_memory=True)
+    train_sampler = BalancedBatchSampler(train_dataset.targets, batch_size, num_classes)
+
+    train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler, pin_memory=True,num_workers=4)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, pin_memory=True,num_workers=4)
 
     model = SupConResNet50(feat_dim=128, pretrained=True).to(device)
     loss_fn = SupConLoss(temperature=0.07).to(device)
@@ -43,9 +44,9 @@ def main():
         train_loss = train_step(model, train_dataloader, optimizer, loss_fn, device)
         test_loss = test_step(model, test_dataloader, loss_fn, device)
 
-        print(f"\nEpoch [{epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Test Loss: {test_loss:.4f}")
+        print(f"\nEpoch {epoch + 1}/{epochs} | Train Loss: {train_loss:.4f} | Test Loss: {test_loss:.4f}")
 
-        torch.save(model.encoder.state_dict(),f"resnet50_supcon_backbone_epoch{epoch+1}.pth")
+        torch.save(model.backbone.state_dict(), r"C:\junha\Git\RTIOD\WorkStation_Triplet\Checkpoints\resnet50_supcon_backbone_epoch{epoch + 1}.pth")
 
     print("\nTraining complete. Final checkpoint saved.")
 
