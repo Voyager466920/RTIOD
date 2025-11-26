@@ -12,9 +12,9 @@ from WorkStation_MoE.MMMMoE.RPN_ROI_Head import build_rpn_and_roi_heads
 
 
 class MMMMoE_Detector(nn.Module):
-    def __init__(self, num_classes:int=5, fpn_out:int=256, meta_dim:int=12, backbone="scratch"):
+    def __init__(self, num_classes:int=5, fpn_out:int=256, meta_dim:int=12, backbone="scratch", supcon_ckpt_path=None):
         super().__init__()
-        self.backbone = MMMMoE(fpn_out=fpn_out, meta_dim=meta_dim, back_bone= backbone)
+        self.backbone = MMMMoE(fpn_out=fpn_out, meta_dim=meta_dim, back_bone=backbone, supcon_ckpt_path=supcon_ckpt_path)
         self.rpn, self.roi_heads = build_rpn_and_roi_heads(
             backbone_out_channels=self.backbone.out_channels,
             num_classes=num_classes,
@@ -50,16 +50,15 @@ class MMMMoE_Detector(nn.Module):
         return detections
 
 
-
 class MMMMoE(nn.Module):
-    def __init__(self, back_bone="scratch", fpn_out:int=256, num_experts=6, meta_dim=9, pretrained=True):
+    def __init__(self, back_bone="scratch", fpn_out:int=256, num_experts=6, meta_dim=9, pretrained=True, supcon_ckpt_path=None):
         super().__init__()
-        self.backbone, backbone_out_channels = self._select_backbone(back_bone, pretrained)
-        self.moeblock = MoEBlock(in_channels=backbone_out_channels[-1],hidden_channels=backbone_out_channels[-1],num_experts=num_experts,meta_dim=meta_dim)
-        self.fpn = FeaturePyramidNetwork(in_channels_list=backbone_out_channels,out_channels=fpn_out)
+        self.backbone, backbone_out_channels = self._select_backbone(back_bone, pretrained, supcon_ckpt_path)
+        self.moeblock = MoEBlock(in_channels=backbone_out_channels[-1], hidden_channels=backbone_out_channels[-1], num_experts=num_experts, meta_dim=meta_dim)
+        self.fpn = FeaturePyramidNetwork(in_channels_list=backbone_out_channels, out_channels=fpn_out)
         self.out_channels = fpn_out
 
-    def _select_backbone(self, name, pretrained):
+    def _select_backbone(self, name, pretrained, supcon_ckpt_path):
         if name == "scratch":
             return Scratch(), [128, 256, 512, 512]
         elif name == "resnet18":
@@ -68,6 +67,12 @@ class MMMMoE(nn.Module):
             return ImageExtractorResnet34(pretrained=pretrained), [128, 256, 512, 512]
         elif name == "resnet50":
             return ImageExtractorResnet50(pretrained=pretrained), [512, 1024, 2048, 2048]
+        elif name == "pretrain":
+            backbone = ImageExtractorResnet50(pretrained=False)
+            if supcon_ckpt_path is not None:
+                state = torch.load(supcon_ckpt_path, map_location="cpu")
+                backbone.load_state_dict(state, strict=False)
+            return backbone, [512, 1024, 2048, 2048]
 
         raise ValueError(f"invalid backbone: {name}")
 
@@ -83,4 +88,3 @@ class MMMMoE(nn.Module):
 
         fpn_feats = self.fpn(feats)
         return fpn_feats, balance_loss
-
