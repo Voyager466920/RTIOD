@@ -3,22 +3,24 @@ import torch
 def test_step(model, dataloader, loss_fn, device):
     model.eval()
     total_loss = 0
-    #total_correct =0
     total_samples = 0
 
     with torch.inference_mode():
         for images, labels in dataloader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            features = outputs.unsqueeze(1)
+            img1, img2 = images
+            img1 = img1.to(device)
+            img2 = img2.to(device)
+            labels = labels.to(device)
+
+            z1 = model(img1)
+            z2 = model(img2)
+            features = torch.stack([z1, z2], dim=1)
 
             loss = loss_fn(features, labels)
 
-            total_loss += loss.item() * images.size(0)
-            #total_correct += (outputs.argmax(1) == labels).sum().item()
-            total_samples += images.size(0)
+            bs = img1.size(0)
+            total_loss += loss.item() * bs
+            total_samples += bs
 
     avg_loss = total_loss / total_samples
-    #acc = total_correct / total_samples
-
     return avg_loss

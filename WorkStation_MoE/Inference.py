@@ -25,7 +25,7 @@ def run_inference_and_visualize(
     )
 
     meta_dim = dataset.meta_dim
-    model = MMMMoE_Detector(num_classes=5, meta_dim=meta_dim).to(device)
+    model = MMMMoE_Detector(num_classes=5, meta_dim=meta_dim, backbone="pretrain").to(device)
     state = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(state, strict=False)
     model.eval()
@@ -69,7 +69,7 @@ def run_inference_and_visualize(
 
 
 if __name__ == "__main__":
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Resnet18_model_epoch_08.pt"
+    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Resnet50_Pretrained_model_epoch_19.pt"
     json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
     save_dir = r"C:\junha\Git\RTIOD\WorkStation_MoE\Inference_Result"

@@ -29,7 +29,7 @@ def validate_model(
     )
 
     meta_dim = dataset.meta_dim
-    model = MMMMoE_Detector(num_classes=num_classes, meta_dim=meta_dim, backbone="resnet18").to(device)
+    model = MMMMoE_Detector(num_classes=num_classes, meta_dim=meta_dim, backbone="pretrain").to(device)
 
     state = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(state, strict=False)
@@ -63,7 +63,7 @@ def validate_model(
 
 if __name__ == "__main__":
 
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Resnet18_model_epoch_37.pt"
+    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Resnet50_Pretrained_model_epoch_19.pt"
     json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 

@@ -49,7 +49,8 @@ def main():
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
     meta_dim = train_dataset.meta_dim
-    model = MMMMoE_Detector(backbone="scratch",num_classes=num_classes, meta_dim=meta_dim).to(device)
+    supcon_ckpt_path = r"resnet50_supcon_backbone_epoch10.pth"
+    model = MMMMoE_Detector(backbone="pretrain",num_classes=num_classes, meta_dim=meta_dim, supcon_ckpt_path=supcon_ckpt_path).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
@@ -83,7 +84,7 @@ def main():
         current_lr = optimizer.param_groups[0]['lr']
         print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
 
-        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Resnet50\model_epoch_{epoch+1:02d}.pt")
+        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Resnet50_Backbone\model_epoch_{epoch+1:02d}.pt")
 
     plt.figure(figsize=(10,5))
     plt.plot(train_losses, label="Train Loss")
