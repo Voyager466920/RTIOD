@@ -16,7 +16,7 @@ from Vibecoding import (
 )
 
 JSON_PATH = r"C:\junha\Datasets\LTDv2\train_val.json"
-CHECKPOINT_PATH = r"C:\junha\Git\RTIOD\WorkStation_Triplet\Checkpoints\epoch_10.pth"
+CHECKPOINT_PATH = r"C:\junha\Git\RTIOD\VibeCoding_Checkpoint\epoch_2.pth"
 BATCH_SIZE = 4
 NUM_WORKERS = 4
 OUTPUT_JSON = r"C:\junha\Git\RTIOD\WorkStation_Triplet\inference_train_val.json"

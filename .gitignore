@@ -5,5 +5,5 @@ tSNE_Visualize/features_all_dates.csv
 /WorkStation_AuxDet/Checkpoints/
 /WorkStation_MoE/Checkpoints/
 /WorkStation_MoE/Checkpoints_Workstation/
-/WorkStation_Triplet/Checkpoints/
+/WorkStation_SupCon/Checkpoints/
 /VibeCoding_Checkpoint/
