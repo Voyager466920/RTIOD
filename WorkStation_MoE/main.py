@@ -7,6 +7,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
+from WorkStation_MoE.Test_Step import test_step
 from WorkStation_MoE.Utils import eval_map
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
@@ -24,11 +25,10 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
         warmup_factor = (self.last_epoch + 1) / self.warmup_epochs
         return [base_lr * warmup_factor for base_lr in self.base_lrs]
 
-
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     epochs = 40
-    batch_size = 32
+    batch_size = 64
     initial_lr = 1e-3
     min_lr = 1e-5
     warmup_epochs = 2
@@ -44,30 +44,13 @@ def main():
     val_json = r"C:\junha\Datasets\LTDv2\Train_val.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 
-    use_meta_keys = [
-        "Temperature",
-        "Humidity",
-        "Sun Radiation Intensity",
-    ]
-
-    train_dataset = IRJsonDataset(
-        json_path=train_json,
-        image_root=image_root,
-        require_bbox=True,
-        use_meta_keys=use_meta_keys,
-    )
-    test_dataset = IRJsonDataset(
-        json_path=val_json,
-        image_root=image_root,
-        require_bbox=True,
-        use_meta_keys=use_meta_keys,
-    )
+    train_dataset = IRJsonDataset(json_path=train_json, image_root=image_root, require_bbox=True)
+    test_dataset = IRJsonDataset(json_path=val_json, image_root=image_root, require_bbox=True)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
 
     meta_dim = train_dataset.meta_dim
-    supcon_ckpt_path = r"resnet50_supcon_backbone_epoch10.pth"
-    model = MMMMoE_Detector(backbone="pretrain", num_classes=num_classes, meta_dim=meta_dim, supcon_ckpt_path=supcon_ckpt_path).to(device)
+    model = MMMMoE_Detector(backbone="scratch",num_classes=num_classes, meta_dim=meta_dim).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
@@ -80,6 +63,7 @@ def main():
         moe.num_batches.zero_()
 
         train_loss = train_step(train_dataloader, model, optimizer, device)
+        test_loss = test_step(test_dataloader, model, device)
         metrics_all, _ = eval_map(test_dataloader, model, device, iou_ths=(0.5,), return_per_class=True)
 
         mAP50 = metrics_all["mAP@0.50"]
@@ -98,12 +82,12 @@ def main():
         else:
             cosine_scheduler.step()
 
-        current_lr = optimizer.param_groups[0]["lr"]
-        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | Test Loss: {test_loss:4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
 
-        torch.save(model.state_dict(), fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Resnet50_Backbone\model_epoch_{epoch+1:02d}.pt")
+        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch+1:02d}.pt")
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(10,5))
     plt.plot(train_losses, label="Train Loss")
     plt.plot(mAP50_list, label="mAP@0.50")
     plt.plot(mAP50_95_list, label="mAP@[0.50:0.95]")
@@ -118,5 +102,6 @@ def main():
     print(f"Best mAP50 = {best_map50:.4f}")
 
 
-if __name__ == "__main__":
+
+if __name__=="__main__":
     main()

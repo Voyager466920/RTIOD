@@ -16,7 +16,6 @@ class IRJsonDataset(Dataset):
         force_size: Tuple[int, int] = (288, 384),
         only_existing: bool = True,
         require_bbox: bool = True,
-        use_meta_keys: Optional[List[str]] = None,
     ):
         super().__init__()
         self.json_path = json_path
@@ -68,14 +67,11 @@ class IRJsonDataset(Dataset):
 
             meta_dict = img.get("meta", {})
             if meta_cols_set is None:
-                if use_meta_keys is not None:
-                    meta_cols_set = list(use_meta_keys)
-                else:
-                    meta_cols = []
-                    for k, v in meta_dict.items():
-                        if isinstance(v, (int, float)):
-                            meta_cols.append(k)
-                    meta_cols_set = meta_cols
+                meta_cols = []
+                for k, v in meta_dict.items():
+                    if isinstance(v, (int, float)):
+                        meta_cols.append(k)
+                meta_cols_set = meta_cols
             samples.append(
                 {
                     "image_id": img_id,
@@ -177,7 +173,6 @@ class IRJsonDataset(Dataset):
             "image_id": torch.tensor([image_id], dtype=torch.int64),
         }
         return image, meta, target
-
 
 def detection_collate(batch):
     images, metas, targets = zip(*batch)
