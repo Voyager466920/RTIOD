@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset, detection_collate
-from WorkStation_MoE.MMMMoE.Original_MMMMoE.MMMMoE import MMMMoE_Detector
+from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
 from WorkStation_MoE.Utils import eval_map
 
 
@@ -29,7 +29,7 @@ def validate_model(
     )
 
     meta_dim = dataset.meta_dim
-    model = MMMMoE_Detector(num_classes=num_classes, meta_dim=meta_dim).to(device)
+    model = MMMMoE_Detector(num_classes=num_classes, meta_dim=meta_dim, backbone="scratch").to(device)
 
     state = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(state, strict=False)
@@ -63,7 +63,7 @@ def validate_model(
 
 if __name__ == "__main__":
 
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Month_Hour_model_epoch_01.pt"
+    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Scratch_model_epoch_39.pt"
     json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 

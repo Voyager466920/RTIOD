@@ -1,0 +1,77 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class MoEBlock(nn.Module):
+    def __init__(self, in_channels:int=512, hidden_channels:int=512, num_experts:int=6, meta_dim:int=12, gate_hidden_dim:int=128, dropout:float=0.1):
+        super().__init__()
+        self.gate_dropout = nn.Dropout(dropout)
+        self.num_experts = num_experts
+
+        self.experts = nn.ModuleList(
+            [Expert(in_channels=in_channels, hidden_channels=hidden_channels) for _ in range(num_experts)]
+        )
+        self.gate = Gate(num_experts=num_experts, meta_dim=meta_dim, hidden_dim=gate_hidden_dim)
+        self.register_buffer("usage_soft", torch.zeros(num_experts))
+        self.register_buffer("usage_hard", torch.zeros(num_experts))
+        self.register_buffer("num_batches", torch.tensor(0., dtype=torch.float32))
+
+    def forward(self, moe_c4, meta):
+        gate_probs = self.gate(meta)
+        top1_idx = gate_probs.argmax(dim=-1)
+
+        with torch.no_grad():
+            self.num_batches += 1
+            self.usage_soft += gate_probs.sum(dim=0)
+            hard = torch.bincount(top1_idx, minlength=self.num_experts).float().to(self.usage_hard.device)
+            self.usage_hard += hard
+
+        out = torch.zeros_like(moe_c4)
+        for eid, expert in enumerate(self.experts):
+            mask = top1_idx == eid
+            if not mask.any():
+                continue
+            idx = mask.nonzero(as_tuple=False).squeeze(-1)
+
+            expert_in = moe_c4[idx]
+            expert_out = expert(expert_in)
+
+            out[idx] = expert_out
+
+        importance = gate_probs.sum(dim=0) / (gate_probs.sum() + 1e-8)
+        balance_loss = torch.std(importance)
+
+        return out, balance_loss
+
+
+class Gate(nn.Module):
+    def __init__(self, num_experts: int, meta_dim:int, hidden_dim:int=128):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(meta_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, num_experts)
+        )
+
+    def forward(self, meta):
+        logits = self.mlp(meta)
+        probs = F.softmax(logits, dim=-1)
+        return probs
+
+
+class Expert(nn.Module):
+    def __init__(self, in_channels=512, hidden_channels=512):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, hidden_channels, 3, padding=1),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(hidden_channels, in_channels, 3, padding=1),
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x
