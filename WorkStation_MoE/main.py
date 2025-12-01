@@ -25,6 +25,7 @@ class WarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
         warmup_factor = (self.last_epoch + 1) / self.warmup_epochs
         return [base_lr * warmup_factor for base_lr in self.base_lrs]
 
+
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     epochs = 40
@@ -44,13 +45,26 @@ def main():
     val_json = r"C:\junha\Datasets\LTDv2\Train_val.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
 
-    train_dataset = IRJsonDataset(json_path=train_json, image_root=image_root, require_bbox=True)
-    test_dataset = IRJsonDataset(json_path=val_json, image_root=image_root, require_bbox=True)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate)
+    train_dataset = IRJsonDataset(
+        json_path=train_json,
+        image_root=image_root,
+        require_bbox=True,
+    )
+    test_dataset = IRJsonDataset(
+        json_path=val_json,
+        image_root=image_root,
+        require_bbox=True,
+    )
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, collate_fn=detection_collate
+    )
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, collate_fn=detection_collate
+    )
 
     meta_dim = train_dataset.meta_dim
-    model = MMMMoE_Detector(backbone="scratch",num_classes=num_classes, meta_dim=meta_dim).to(device)
+    model = MMMMoE_Detector(backbone="scratch", num_classes=num_classes, meta_dim=meta_dim).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=initial_lr)
     warmup_scheduler = WarmupScheduler(optimizer, warmup_epochs=warmup_epochs)
@@ -82,12 +96,19 @@ def main():
         else:
             cosine_scheduler.step()
 
-        current_lr = optimizer.param_groups[0]['lr']
-        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | Test Loss: {test_loss:4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
+        current_lr = optimizer.param_groups[0]["lr"]
+        print(
+            f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | "
+            f"Test Loss: {test_loss:4f} | mAP50: {mAP50:.4f} | "
+            f"mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}"
+        )
 
-        torch.save(model.state_dict(),fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch+1:02d}.pt")
+        torch.save(
+            model.state_dict(),
+            fr"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints\model_epoch_{epoch+1:02d}.pt",
+        )
 
-    plt.figure(figsize=(10,5))
+    plt.figure(figsize=(10, 5))
     plt.plot(train_losses, label="Train Loss")
     plt.plot(mAP50_list, label="mAP@0.50")
     plt.plot(mAP50_95_list, label="mAP@[0.50:0.95]")
@@ -102,6 +123,5 @@ def main():
     print(f"Best mAP50 = {best_map50:.4f}")
 
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
