@@ -77,7 +77,6 @@ def main():
         moe.num_batches.zero_()
 
         train_loss = train_step(train_dataloader, model, optimizer, device)
-        test_loss = test_step(test_dataloader, model, device)
         metrics_all, _ = eval_map(test_dataloader, model, device, iou_ths=(0.5,), return_per_class=True)
 
         mAP50 = metrics_all["mAP@0.50"]
@@ -97,11 +96,7 @@ def main():
             cosine_scheduler.step()
 
         current_lr = optimizer.param_groups[0]["lr"]
-        print(
-            f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | "
-            f"Test Loss: {test_loss:4f} | mAP50: {mAP50:.4f} | "
-            f"mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}"
-        )
+        print(f"Epoch {epoch + 1:02d}/{epochs} | Train Loss: {train_loss:.4f} | mAP50: {mAP50:.4f} | mAP50-95: {mAP50_95:.4f} | LR: {current_lr:.6f}")
 
         torch.save(
             model.state_dict(),

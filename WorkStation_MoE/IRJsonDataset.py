@@ -2,6 +2,8 @@ import os
 import json
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+
 import torch
 from torch.utils.data import Dataset
 from PIL import Image
@@ -66,6 +68,20 @@ class IRJsonDataset(Dataset):
                 continue
 
             meta_dict = img.get("meta", {})
+            date_str = img.get("date_captured")
+            if isinstance(date_str, str):
+                dt = None
+                try:
+                    dt = datetime.fromisoformat(date_str)
+                except ValueError:
+                    try:
+                        dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
+                    except ValueError:
+                        dt = None
+                if dt is not None:
+                    meta_dict["Month"] = dt.month
+                    meta_dict["Hour"] = dt.hour + dt.minute / 60.0
+
             if meta_cols_set is None:
                 meta_cols = []
                 for k, v in meta_dict.items():
@@ -173,6 +189,7 @@ class IRJsonDataset(Dataset):
             "image_id": torch.tensor([image_id], dtype=torch.int64),
         }
         return image, meta, target
+
 
 def detection_collate(batch):
     images, metas, targets = zip(*batch)
