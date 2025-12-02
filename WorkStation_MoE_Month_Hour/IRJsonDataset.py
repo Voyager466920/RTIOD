@@ -228,7 +228,7 @@ class IRJsonDataset(Dataset):
                 labels_np = np.zeros((0, 1), dtype=np.float32)
             else:
                 bboxes_np = np.asarray(boxes_list, dtype=np.float32).reshape(-1, 4)
-                labels_np = np.asarray(labels_list, dtype=np.float32).reshape(-1, 1)
+                labels_np = np.asarray(labels_list, dtype=np.int32).reshape(-1, 1)
 
             segments = np.zeros((0, 0, 2), dtype=np.float32)
 

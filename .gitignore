@@ -7,3 +7,6 @@ tSNE_Visualize/features_all_dates.csv
 /WorkStation_MoE/Checkpoints_Workstation/
 /WorkStation_SupCon/Checkpoints/
 /VibeCoding_Checkpoint/
+/Prediction_Validation/predictions.json
+/Prediction_Validation/valid_targets.json
+/Prediction_Validation/output/
