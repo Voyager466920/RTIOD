@@ -3,7 +3,7 @@ import torch
 from PIL import Image, ImageDraw
 
 from WorkStation_MoE.IRJsonDataset import IRJsonDataset
-from WorkStation_MoE.MMMMoE.MMMMoE import MMMMoE_Detector
+from WorkStation_MoE.MMMMoE.Original_MMMMoE.MMMMoE import MMMMoE_Detector
 
 
 def run_inference_and_visualize(
@@ -11,7 +11,7 @@ def run_inference_and_visualize(
     json_path,
     image_root,
     save_dir,
-    idx=0,
+    idx=1,
     score_thresh=0.5,
 ):
     os.makedirs(save_dir, exist_ok=True)
@@ -25,7 +25,7 @@ def run_inference_and_visualize(
     )
 
     meta_dim = dataset.meta_dim
-    model = MMMMoE_Detector(num_classes=5, meta_dim=meta_dim, backbone="pretrain").to(device)
+    model = MMMMoE_Detector(num_classes=5, meta_dim=meta_dim).to(device)
     state = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(state, strict=False)
     model.eval()
@@ -69,7 +69,7 @@ def run_inference_and_visualize(
 
 
 if __name__ == "__main__":
-    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Resnet50_Pretrained_model_epoch_19.pt"
+    ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE\Checkpoints_Workstation\Month_Hour_model_epoch_23.pt"
     json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
     image_root = r"C:\junha\Datasets\LTDv2\frames\frames"
     save_dir = r"C:\junha\Git\RTIOD\WorkStation_MoE\Inference_Result"
