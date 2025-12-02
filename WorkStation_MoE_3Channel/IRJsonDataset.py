@@ -162,7 +162,7 @@ class IRJsonDataset(Dataset):
 
     def _load_image(self, path: str) -> torch.Tensor:
         # 1채널(L)로 로드, 필요시 3채널(RGB)로 변경 가능
-        img = Image.open(path).convert("L")
+        img = Image.open(path).convert("RGB")
         if self.force_size is not None:
             h, w = self.force_size
             img = img.resize((w, h))
