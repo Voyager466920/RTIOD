@@ -5,10 +5,10 @@ from torch.utils.data import DataLoader
 from WorkStation_MoE_3Channel.IRJsonDataset import IRJsonDataset, detection_collate
 from WorkStation_MoE_3Channel.MMMMoE.MMMMoE import MMMMoE_Detector
 
-ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE_3Channel\Checkpoints\Resnet18_ColorChannel_model_epoch_11.pt"
+ckpt_path = r"C:\junha\Git\RTIOD\WorkStation_MoE_3Channel\Checkpoints\Resnet34_ColorChannel_model_epoch_11.pt"
 json_path = r"C:\junha\Datasets\LTDv2\Valid.json"
 image_root = r"C:\junha\Datasets\LTDv2_3Channels\val"
-output_pred_path = r"C:\junha\Git\RTIOD\Prediction_Validation\predictions_color.json"
+output_pred_path = r"C:\junha\Git\RTIOD\Prediction_Validation\predictions_color_resnet34.json"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -25,7 +25,7 @@ dataloader = DataLoader(
 )
 
 meta_dim = dataset.meta_dim
-model = MMMMoE_Detector(num_classes=5, meta_dim=meta_dim, backbone='resnet18').to(device)
+model = MMMMoE_Detector(num_classes=5, meta_dim=meta_dim, backbone='resnet34').to(device)
 state = torch.load(ckpt_path, map_location=device)
 model.load_state_dict(state, strict=False)
 model.eval()

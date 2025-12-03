@@ -7,7 +7,7 @@ The scores and metrics are outputet in a "scores.json" file at in the designated
 Note the competition runs the evaluation in the follwing container: https://hub.docker.com/repository/docker/asjaau/ltdv2/tags/latest/
 
 Usage:
-    python challenge_evaluator.py predictions_color.json valid_targets.json --output_dir ./output_color/
+    python challenge_evaluator.py predictions_color.json valid_targets.json --output_dir ./output_color_34/
 """
 
 import argparse
